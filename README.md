@@ -11,8 +11,7 @@ fn fib(n) {
 	
 	if(num < 2) {
         return n
-    }
-    else {
+    } else {
         return fib(n-1) + fib(n - 2)
     }
 }
