@@ -1,20 +1,69 @@
 # rue
 An interpreted programming language written in Typescript.
 
-Example:
+## Planned Features
 
+[ ] Functions
 ```rs
 use {std::print}
 
-fn fib(n) {
-    print(n)
+fn hello_world() {
+    print("Hello World")
+}
+
+hello_world()
+```
+
+[ ] Classes
+```rs
+use {std::print}
+
+class Person {
+    private name;
+    sayName() {
+        print(this.name)
+    }
     
-    if(num < 2) {
-        return n
-    } else {
-        return fib(n-1) + fib(n - 2)
+    new(name) {
+        this.name = name
     }
 }
 
-fib(5)
+var person = Person::new()
+person.sayName()
 ```
+
+[ ] Traits
+```rs
+use {std::print}
+
+trait Speaks {
+    say(text) {
+        print(text)
+    }
+}
+
+trait Greets {
+    greet() {
+        print(this.name)
+    }
+}
+
+class Person: Speaks, Greets {
+    private name;
+    new(name) {
+        this.name = name
+    }
+}
+
+class Dog: Speaks {}
+
+var dog = Dog::new()
+var person = Person::new()
+
+dog.say("Woof!")
+
+person.say("Hello!")
+person.greet()
+```
+
