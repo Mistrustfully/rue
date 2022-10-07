@@ -3,7 +3,7 @@ An interpreted programming language written in Typescript.
 
 Example:
 
-```ts
+```rs
 use {std::print}
 
 fn fib(n) {
