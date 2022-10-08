@@ -1,6 +1,19 @@
 import { padNumber } from "../util";
 import { Chunk } from "./chunk";
 import { OpCode } from "./opcode";
+import { RueValue } from "./value";
+
+function printValue(val: RueValue) {
+	let text = `[ ${val.type}`;
+
+	if (val.type !== "nil") {
+		text += ` : ${val.value}`;
+	}
+
+	text += " ]";
+
+	return text;
+}
 
 function simpleInstruction(name: string, offset: number): [number, string] {
 	return [offset + 1, name];
@@ -8,7 +21,7 @@ function simpleInstruction(name: string, offset: number): [number, string] {
 
 function constantInstruction(name: string, chunk: Chunk, offset: number): [number, string] {
 	const constant = chunk.code[offset + 1];
-	return [offset + 2, `${name} ${padNumber(constant, 4)} ${chunk.constants[constant]}`];
+	return [offset + 2, `${name} ${padNumber(constant, 4)} ${printValue(chunk.constants[constant])}`];
 }
 
 export namespace Debug {
@@ -18,10 +31,20 @@ export namespace Debug {
 		const instruction = chunk.code[offset];
 
 		switch (instruction) {
-			case OpCode.OP_RETURN:
+			case OpCode.RETURN:
 				return simpleInstruction("OP_RETURN", offset);
-			case OpCode.OP_CONSTANT:
+			case OpCode.CONSTANT:
 				return constantInstruction("OP_CONSTANT", chunk, offset);
+			case OpCode.NEGATE:
+				return simpleInstruction("OP_NEGATE", offset);
+			case OpCode.ADD:
+				return simpleInstruction("OP_ADD", offset);
+			case OpCode.SUBTRACT:
+				return simpleInstruction("OP_SUBTRACT", offset);
+			case OpCode.MULTIPLY:
+				return simpleInstruction("OP_MULTIPLY", offset);
+			case OpCode.DIVIDE:
+				return simpleInstruction("OP_DIVIDE", offset);
 		}
 
 		return [offset, ""];

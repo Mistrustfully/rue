@@ -1,9 +1,25 @@
 {
+	"name": "rue",
+	"version": "1.0.0",
+	"main": "index.js",
+	"bin": {
+		"repl": "run/repl.js",
+		"run": "run/run-file.js"
+	},
+	"author": {
+		"name": "Christian Fletcher",
+		"email": "mistrustfully@gmail.com"
+	},
+	"license": "Apache 2.0",
 	"devDependencies": {
+		"@types/node": "^18.8.3",
 		"@typescript-eslint/eslint-plugin": "^5.39.0",
 		"@typescript-eslint/parser": "^5.39.0",
 		"eslint-config-prettier": "^8.5.0",
 		"eslint-plugin-prettier": "^4.2.1",
 		"typescript": "^4.8.4"
+	},
+	"dependencies": {
+		"readline": "^1.3.0"
 	}
 }
