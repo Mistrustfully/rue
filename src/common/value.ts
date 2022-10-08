@@ -18,3 +18,9 @@ export type RueNil = {
 };
 
 export type RueValue = RueString | RueNumber | RueBoolean | RueNil;
+export function ValuesEqual(a: RueValue, b: RueValue) {
+	if (a.type !== b.type) return false;
+	if (a.type === "nil" || b.type === "nil") return true;
+
+	return a.value === b.value;
+}

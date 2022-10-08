@@ -1,10 +1,19 @@
 export const enum OpCode {
 	RETURN,
 	CONSTANT,
+	NIL,
+	TRUE,
+	FALSE,
 
 	NEGATE,
+	NOT,
+
 	ADD,
 	SUBTRACT,
 	MULTIPLY,
 	DIVIDE,
+
+	EQUAL,
+	GREATER,
+	LESS,
 }

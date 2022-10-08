@@ -30,6 +30,18 @@ const rules: { [index in number]: [Precendence, ParseFn?, ParseFn?] } = {
 	[TokenType.SLASH]: [Precendence.FACTOR, undefined, binary],
 	[TokenType.STAR]: [Precendence.FACTOR, undefined, binary],
 	[TokenType.NUMBER]: [Precendence.NONE, number, undefined],
+
+	[TokenType.NIL]: [Precendence.NONE, literal],
+	[TokenType.FALSE]: [Precendence.NONE, literal],
+	[TokenType.TRUE]: [Precendence.NONE, literal],
+
+	[TokenType.BANG]: [Precendence.NONE, unary],
+	[TokenType.BANG_EQUAL]: [Precendence.EQUALITY, undefined, binary],
+	[TokenType.EQUAL_EQUAL]: [Precendence.EQUALITY, undefined, binary],
+	[TokenType.GREATER]: [Precendence.EQUALITY, undefined, binary],
+	[TokenType.GREATER_EQUAL]: [Precendence.EQUALITY, undefined, binary],
+	[TokenType.LESS]: [Precendence.EQUALITY, undefined, binary],
+	[TokenType.LESS_EQUAL]: [Precendence.EQUALITY, undefined, binary],
 };
 
 function grouping(parser: Parser) {
@@ -55,6 +67,24 @@ function binary(parser: Parser) {
 		case TokenType.SLASH:
 			parser.emitByte(OpCode.DIVIDE);
 			break;
+		case TokenType.BANG_EQUAL:
+			parser.emitBytes(OpCode.EQUAL, OpCode.NOT);
+			break;
+		case TokenType.EQUAL_EQUAL:
+			parser.emitBytes(OpCode.EQUAL);
+			break;
+		case TokenType.GREATER:
+			parser.emitByte(OpCode.GREATER);
+			break;
+		case TokenType.GREATER_EQUAL:
+			parser.emitBytes(OpCode.LESS, OpCode.NOT);
+			break;
+		case TokenType.LESS:
+			parser.emitByte(OpCode.LESS);
+			break;
+		case TokenType.LESS_EQUAL:
+			parser.emitBytes(OpCode.GREATER, OpCode.NOT);
+			break;
 	}
 }
 
@@ -70,6 +100,23 @@ function unary(parser: Parser) {
 	switch (operatorType) {
 		case TokenType.MINUS:
 			parser.emitByte(OpCode.NEGATE);
+			break;
+		case TokenType.BANG:
+			parser.emitByte(OpCode.NOT);
+			break;
+	}
+}
+
+function literal(parser: Parser) {
+	switch (parser.previous.type) {
+		case TokenType.FALSE:
+			parser.emitByte(OpCode.FALSE);
+			break;
+		case TokenType.TRUE:
+			parser.emitByte(OpCode.TRUE);
+			break;
+		case TokenType.NIL:
+			parser.emitByte(OpCode.NIL);
 			break;
 	}
 }
@@ -114,9 +161,7 @@ export class Parser {
 	}
 
 	emitBytes(...bytes: number[]) {
-		bytes.forEach((byte) => {
-			this.emitByte(byte);
-		});
+		bytes.forEach((byte) => this.emitByte(byte));
 	}
 
 	emitConstant(constant: RueValue) {
