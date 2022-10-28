@@ -1,7 +1,7 @@
 import { Chunk } from "../common/chunk";
 import { Debug } from "../common/debug";
 import { OpCode } from "../common/opcode";
-import { RueBoolean, RueNumber, RueValue, ValuesEqual } from "../common/value";
+import { RueBoolean, RueNumber, RueString, RueValue, ValuesEqual } from "../common/value";
 import { Compile } from "../frontend/compiler";
 
 export class VM {
@@ -40,6 +40,13 @@ export class VM {
 		}
 
 		return 0;
+	}
+
+	concat() {
+		const v1 = this.pop() as RueString;
+		const v2 = this.pop() as RueString;
+
+		return v2.value + v1.value;
 	}
 
 	compare(op: OpCode) {
@@ -100,7 +107,12 @@ export class VM {
 					this.push({ type: "number", value: -(this.pop() as RueNumber).value });
 					break;
 
-				case OpCode.ADD:
+				case OpCode.ADD: {
+					if (this.peek(0).type === "string" && this.peek(1).type === "string") {
+						this.push({ type: "string", value: this.concat() });
+						break;
+					}
+				}
 				case OpCode.SUBTRACT:
 				case OpCode.MULTIPLY:
 				case OpCode.DIVIDE:
@@ -125,7 +137,7 @@ export class VM {
 					} else if (this.peek(0).type === "boolean") {
 						this.push({ type: "boolean", value: !(this.pop() as RueBoolean).value });
 					} else {
-						this.runtimeError("Attempt to OP_NOT a nonfalsey type!");
+						this.runtimeError("Attempt to OP_NOT a nonboolean type!");
 						return InterpretResult.RUNTIME_ERROR;
 					}
 					break;

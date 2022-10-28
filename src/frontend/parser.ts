@@ -42,6 +42,8 @@ const rules: { [index in number]: [Precendence, ParseFn?, ParseFn?] } = {
 	[TokenType.GREATER_EQUAL]: [Precendence.EQUALITY, undefined, binary],
 	[TokenType.LESS]: [Precendence.EQUALITY, undefined, binary],
 	[TokenType.LESS_EQUAL]: [Precendence.EQUALITY, undefined, binary],
+
+	[TokenType.STRING]: [Precendence.NONE, string],
 };
 
 function grouping(parser: Parser) {
@@ -119,6 +121,13 @@ function literal(parser: Parser) {
 			parser.emitByte(OpCode.NIL);
 			break;
 	}
+}
+
+function string(parser: Parser) {
+	parser.emitConstant({
+		type: "string",
+		value: parser.previous.lexeme.substring(1, parser.previous.lexeme.length - 1),
+	});
 }
 
 export class Parser {
