@@ -46,6 +46,9 @@ const rules: { [index in number]: [Precendence, ParseFn?, ParseFn?] } = {
 
 	[TokenType.STRING]: [Precendence.NONE, string],
 	[TokenType.IDENTIFIER]: [Precendence.NONE, variable],
+
+	[TokenType.AND]: [Precendence.AND, undefined, and_],
+	[TokenType.OR]: [Precendence.OR, undefined, or_],
 };
 
 function grouping(parser: Parser) {
@@ -132,6 +135,24 @@ function string(parser: Parser) {
 	});
 }
 
+function and_(parser: Parser) {
+	const endJump = parser.emitJump(OpCode.JUMP_IF_FALSE);
+	parser.emitByte(OpCode.POP);
+	parser.parsePrecedence(Precendence.AND);
+	parser.patchJump(endJump);
+}
+
+function or_(parser: Parser) {
+	const elseJump = parser.emitJump(OpCode.JUMP_IF_FALSE);
+	const endJump = parser.emitJump(OpCode.JUMP);
+
+	parser.patchJump(elseJump);
+	parser.emitByte(OpCode.POP);
+
+	parser.parsePrecedence(Precendence.OR);
+	parser.patchJump(endJump);
+}
+
 function variable(parser: Parser, canAssign: boolean) {
 	parser.namedVariable(parser.previous, canAssign);
 }
@@ -150,9 +171,9 @@ export class Parser {
 	errorAt(token: Token, message: string) {
 		if (this.panicMode) return;
 
-		let text = `[line ${token.line}] Error`;
+		let text = `[line ${token.line}] Error `;
 		if (token.type === TokenType.EOF) {
-			text += " at end";
+			text += "at end";
 		} else if (token.type !== TokenType.ERROR) {
 			text += token.lexeme;
 		}
@@ -187,6 +208,24 @@ export class Parser {
 
 	emitConstant(constant: RueValue) {
 		this.emitBytes(OpCode.CONSTANT, this.currentChunk().addConstant(constant));
+	}
+
+	emitJump(instruction: OpCode) {
+		this.emitByte(instruction);
+		this.emitByte(0);
+		return this.currentChunk().code.length - 1;
+	}
+
+	patchJump(offset: number) {
+		const jump = this.currentChunk().code.length;
+		this.currentChunk().code[offset] = jump - offset - 1;
+	}
+
+	emitLoop(loopStart: number) {
+		this.emitByte(OpCode.LOOP);
+
+		const offset = this.currentChunk().code.length - loopStart + 1;
+		this.emitByte(offset);
 	}
 
 	startScope() {
@@ -283,6 +322,88 @@ export class Parser {
 		this.emitByte(OpCode.POP);
 	}
 
+	ifStatement() {
+		this.expression();
+		const thenJump = this.emitJump(OpCode.JUMP_IF_FALSE);
+		this.emitByte(OpCode.POP);
+		this.declaration();
+		this.patchJump(thenJump);
+
+		if (this.match(TokenType.ELSE)) {
+			this.emitByte(OpCode.POP);
+			const elseJump = this.emitJump(OpCode.JUMP);
+			this.statement();
+			this.patchJump(elseJump);
+		}
+	}
+
+	whileStatement() {
+		const loopStart = this.currentChunk().code.length;
+		this.expression();
+
+		const exitJump = this.emitJump(OpCode.JUMP_IF_FALSE);
+		this.emitByte(OpCode.POP);
+
+		this.declaration();
+
+		this.emitLoop(loopStart);
+		this.patchJump(exitJump);
+
+		this.emitByte(OpCode.POP);
+	}
+
+	forStatement() {
+		this.startScope();
+
+		// Match for intializer
+		if (this.match(TokenType.COMMA)) {
+			// No initializer
+		} else {
+			if (this.match(TokenType.VAR)) {
+				this.varDeclaration();
+			} else {
+				this.expressionStatement();
+			}
+
+			this.consume(TokenType.COMMA, "Expect ',' after loop intializer");
+		}
+
+		let loopStart = this.currentChunk().code.length;
+
+		// Match for condition clause
+		let exitJump = -1;
+		if (!this.match(TokenType.COMMA)) {
+			this.expression();
+			this.consume(TokenType.COMMA, "Expect ',' after loop condition");
+
+			exitJump = this.emitJump(OpCode.JUMP_IF_FALSE);
+			this.emitByte(OpCode.POP);
+		}
+
+		// Match for increment
+		if (!this.match(TokenType.COMMA)) {
+			const bodyJump = this.emitJump(OpCode.JUMP);
+			const incrementStart = this.currentChunk().code.length;
+
+			this.expression();
+
+			this.emitByte(OpCode.POP);
+			this.emitLoop(loopStart);
+			loopStart = incrementStart;
+			this.patchJump(bodyJump);
+		}
+
+		this.declaration();
+		this.emitLoop(loopStart);
+
+		if (exitJump !== -1) {
+			this.patchJump(exitJump);
+			this.emitByte(OpCode.POP);
+		}
+
+		this.endScope();
+	}
+
 	statement() {
 		this.expressionStatement();
 	}
@@ -302,6 +423,12 @@ export class Parser {
 	declaration() {
 		if (this.match(TokenType.VAR)) {
 			this.varDeclaration();
+		} else if (this.match(TokenType.IF)) {
+			this.ifStatement();
+		} else if (this.match(TokenType.WHILE)) {
+			this.whileStatement();
+		} else if (this.match(TokenType.FOR)) {
+			this.forStatement();
 		} else if (this.match(TokenType.LEFT_BRACE)) {
 			this.startScope();
 			this.block();
@@ -314,7 +441,6 @@ export class Parser {
 	}
 
 	markInitialized() {
-		console.log(this.currentCompiler.locals);
 		this.currentCompiler.locals[this.currentCompiler.localCount - 1].depth = this.currentCompiler.scopeDepth;
 	}
 

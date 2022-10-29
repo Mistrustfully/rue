@@ -34,8 +34,14 @@ function byteInstruction(name: string, chunk: Chunk, offset: number): [number, s
 	return [offset + 2, `${name} ${padNumber(slot, 4)}`];
 }
 
+function jumpInstruction(name: string, chunk: Chunk, offset: number, direction = 1): [number, string] {
+	const jmpOffset = chunk.code[offset + 1];
+	return [offset + 2, `${name} ${padNumber(offset + jmpOffset * direction, 4)}`];
+}
+
 export namespace Debug {
-	export const DEBUG_TRACE_EXECUTION = true;
+	/* eslint-disable */
+	export let DEBUG_TRACE_EXECUTION = true;
 
 	export function DisassembleInstruction(chunk: Chunk, offset: number): [number, string] {
 		const instruction = chunk.code[offset];
@@ -81,6 +87,12 @@ export namespace Debug {
 				return byteInstruction("OP_GET_LOCAL", chunk, offset);
 			case OpCode.SET_LOCAL:
 				return byteInstruction("OP_SET_LOCAL", chunk, offset);
+			case OpCode.JUMP_IF_FALSE:
+				return jumpInstruction("OP_JUMP_IF_FALSE", chunk, offset);
+			case OpCode.JUMP:
+				return jumpInstruction("OP_JUMP", chunk, offset);
+			case OpCode.LOOP:
+				return jumpInstruction("OP_LOOP", chunk, offset, -1);
 		}
 
 		return [offset + 1, "UNKNOWN_OP"];

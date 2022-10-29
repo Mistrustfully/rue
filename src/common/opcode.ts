@@ -1,5 +1,8 @@
 export const enum OpCode {
 	RETURN,
+	JUMP_IF_FALSE,
+	JUMP,
+	LOOP,
 	CONSTANT,
 	POP,
 	DEFINE_GLOBAL,

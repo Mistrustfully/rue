@@ -22,12 +22,8 @@ export class VM {
 	}
 
 	binaryOp(op: OpCode) {
-		if (this.peek(0).type !== "number" || this.peek(1).type !== "number") {
-			this.runtimeError("Operand must be a number.");
-		}
-
-		const v1 = this.pop() as RueNumber;
 		const v2 = this.pop() as RueNumber;
+		const v1 = this.pop() as RueNumber;
 
 		switch (op) {
 			case OpCode.ADD:
@@ -44,25 +40,21 @@ export class VM {
 	}
 
 	concat() {
-		const v1 = this.pop() as RueString;
 		const v2 = this.pop() as RueString;
+		const v1 = this.pop() as RueString;
 
-		return v2.value + v1.value;
+		return v1.value + v2.value;
 	}
 
 	compare(op: OpCode) {
-		if (this.peek(0).type !== "number" || this.peek(1).type !== "number") {
-			this.runtimeError("Operand must be a number.");
-		}
-
-		const v1 = this.pop() as RueNumber;
 		const v2 = this.pop() as RueNumber;
+		const v1 = this.pop() as RueNumber;
 
 		switch (op) {
 			case OpCode.GREATER:
-				return v2.value > v1.value;
+				return v1.value > v2.value;
 			case OpCode.LESS:
-				return v2.value < v1.value;
+				return v1.value < v2.value;
 		}
 
 		return false;
@@ -83,7 +75,7 @@ export class VM {
 		console.log(`[line ${this.chunk.lines[this.instruction]}] in script`);
 	}
 
-	run() {
+	run(): [InterpretResult, RueValue?] {
 		/* eslint-disable no-constant-condition */
 		while (true) {
 			const instruction = this.readByte();
@@ -94,15 +86,14 @@ export class VM {
 
 			switch (instruction) {
 				case OpCode.RETURN:
-					console.log(this.pop());
-					return InterpretResult.OK;
+					return [InterpretResult.OK, this.pop()];
 				case OpCode.CONSTANT:
 					this.push(this.readConstant());
 					break;
 				case OpCode.NEGATE:
 					if (this.peek(0).type !== "number") {
 						this.runtimeError("Operand must be a number.");
-						return InterpretResult.RUNTIME_ERROR;
+						return [InterpretResult.RUNTIME_ERROR];
 					}
 
 					this.push({ type: "number", value: -(this.pop() as RueNumber).value });
@@ -117,10 +108,20 @@ export class VM {
 				case OpCode.SUBTRACT:
 				case OpCode.MULTIPLY:
 				case OpCode.DIVIDE:
+					if (this.peek(0).type !== "number" || this.peek(1).type !== "number") {
+						this.runtimeError("Operand must be a number.");
+						return [InterpretResult.RUNTIME_ERROR];
+					}
+
 					this.push({ type: "number", value: this.binaryOp(instruction) });
 					break;
 				case OpCode.LESS:
 				case OpCode.GREATER:
+					if (this.peek(0).type !== "number" || this.peek(1).type !== "number") {
+						this.runtimeError("Operand must be a number.");
+						return [InterpretResult.RUNTIME_ERROR];
+					}
+
 					this.push({ type: "boolean", value: this.compare(instruction) });
 					break;
 				case OpCode.NIL:
@@ -139,7 +140,7 @@ export class VM {
 						this.push({ type: "boolean", value: !(this.pop() as RueBoolean).value });
 					} else {
 						this.runtimeError("Attempt to OP_NOT a nonboolean type!");
-						return InterpretResult.RUNTIME_ERROR;
+						return [InterpretResult.RUNTIME_ERROR];
 					}
 					break;
 				case OpCode.EQUAL: {
@@ -161,19 +162,18 @@ export class VM {
 					const name = this.readConstant() as RueString;
 					if (!this.globals.has(name.value)) {
 						this.runtimeError(`Undefined variable: ${name.value}`);
-						return InterpretResult.RUNTIME_ERROR;
+						return [InterpretResult.RUNTIME_ERROR];
 					}
 
 					const value = this.globals.get(name.value);
 					this.push(value);
-					console.log(this.globals);
 					break;
 				}
 				case OpCode.SET_GLOBAL: {
 					const name = this.readConstant() as RueString;
 					if (!this.globals.has(name.value)) {
 						this.runtimeError(`Undefined variable ${name.value}`);
-						return InterpretResult.RUNTIME_ERROR;
+						return [InterpretResult.RUNTIME_ERROR];
 					}
 					this.globals.set(name.value, this.peek(0));
 					break;
@@ -188,17 +188,40 @@ export class VM {
 					this.chunk.stack[slot] = this.peek(0);
 					break;
 				}
+				case OpCode.JUMP_IF_FALSE: {
+					const offset = this.readByte();
+					const next = this.peek(0);
+					if (next.type !== "boolean" && next.type !== "nil") {
+						this.runtimeError(`Cannot use type ${next.value} as a boolean!`);
+						return [InterpretResult.RUNTIME_ERROR];
+					}
+
+					if (next.type === "nil" || next.value === false) {
+						this.instruction += offset;
+					}
+					break;
+				}
+				case OpCode.JUMP: {
+					const offset = this.readByte();
+					this.instruction += offset;
+					break;
+				}
+				case OpCode.LOOP: {
+					const offset = this.readByte();
+					this.instruction -= offset;
+					break;
+				}
 			}
 		}
 	}
 }
 
 export namespace VirtualMachine {
-	export function Interpret(source: string) {
+	export function Interpret(source: string): [InterpretResult, RueValue?] {
 		const chunk = new Chunk();
 
 		if (!Compile(source, chunk)) {
-			return InterpretResult.COMPILE_ERROR;
+			return [InterpretResult.COMPILE_ERROR];
 		}
 
 		const vm = new VM(chunk);
