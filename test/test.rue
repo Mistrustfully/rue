@@ -1,8 +1,0 @@
-{
-	var hello = "hello"
-	var world = "world"
-
-	world = ""
-
-	(hello + " " + world)
-}

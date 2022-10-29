@@ -6,6 +6,10 @@
 		"repl": "run/repl.js",
 		"run": "run/run-file.js"
 	},
+	"scripts": {
+		"test": "node out/run/run-tests.js",
+		"file": "node out/run/run-file.js"
+	},
 	"author": {
 		"name": "Christian Fletcher",
 		"email": "mistrustfully@gmail.com"

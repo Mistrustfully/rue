@@ -8,5 +8,5 @@ const rl = readline.createInterface({
 });
 
 rl.on("line", (line) => {
-	Rue.VM.Interpret(line + " ");
+	console.log(Rue.VM.Interpret(line) + " ");
 });
