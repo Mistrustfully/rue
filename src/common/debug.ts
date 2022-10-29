@@ -1,7 +1,7 @@
 import { padNumber } from "../util";
 import { Chunk } from "./chunk";
 import { OpCode } from "./opcode";
-import { RueNumber, RueValue } from "./value";
+import { RueValue } from "./value";
 
 function printValue(val: RueValue) {
 	if (!val) {
@@ -64,6 +64,14 @@ export namespace Debug {
 				return simpleInstruction("OP_LESS", offset);
 			case OpCode.EQUAL:
 				return simpleInstruction("OP_EQUAL", offset);
+			case OpCode.POP:
+				return simpleInstruction("OP_POP", offset);
+			case OpCode.DEFINE_GLOBAL:
+				return constantInstruction("OP_DEFINE_GLOBAL", chunk, offset);
+			case OpCode.GET_GLOBAL:
+				return constantInstruction("OP_GET_GLOBAL", chunk, offset);
+			case OpCode.SET_GLOBAL:
+				return constantInstruction("OP_SET_GLOBAL", chunk, offset);
 		}
 
 		return [offset + 1, "UNKNOWN_OP"];

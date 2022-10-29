@@ -8,8 +8,11 @@ export function Compile(source: string, chunk: Chunk) {
 	const parser = new Parser(scanner, chunk);
 
 	parser.advance();
-	parser.expression();
-	parser.consume(TokenType.EOF, "Expect end of expression.");
+
+	while (!parser.match(TokenType.EOF)) {
+		parser.declaration();
+	}
+
 	parser.endCompiler();
 
 	return !parser.hadError;

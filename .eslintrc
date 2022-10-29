@@ -22,6 +22,6 @@
 	"rules": {
 		"prettier/prettier": "warn",
 		"@typescript-eslint/no-namespace": "off",
-		"eslint/no-fallthrough": "off"
+		"no-fallthrough": "off"
 	}
 }

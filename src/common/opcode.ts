@@ -1,6 +1,10 @@
 export const enum OpCode {
 	RETURN,
 	CONSTANT,
+	POP,
+	DEFINE_GLOBAL,
+	GET_GLOBAL,
+	SET_GLOBAL,
 	NIL,
 	TRUE,
 	FALSE,

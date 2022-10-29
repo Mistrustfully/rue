@@ -6,7 +6,7 @@ import { RueValue } from "../common/value";
 import { stringToDigit } from "../util";
 import { Scanner } from "./scanner";
 
-type ParseFn = (parser: Parser) => void;
+type ParseFn = (parser: Parser, canAssign: boolean) => void;
 const DefaultRule = [Precendence.NONE];
 
 const enum Precendence {
@@ -44,6 +44,7 @@ const rules: { [index in number]: [Precendence, ParseFn?, ParseFn?] } = {
 	[TokenType.LESS_EQUAL]: [Precendence.EQUALITY, undefined, binary],
 
 	[TokenType.STRING]: [Precendence.NONE, string],
+	[TokenType.IDENTIFIER]: [Precendence.NONE, variable],
 };
 
 function grouping(parser: Parser) {
@@ -130,6 +131,10 @@ function string(parser: Parser) {
 	});
 }
 
+function variable(parser: Parser, canAssign: boolean) {
+	parser.namedVariable(parser.previous, canAssign);
+}
+
 export class Parser {
 	constructor(public scanner: Scanner, public compilingChunk: Chunk) {}
 	public previous!: Token;
@@ -154,6 +159,12 @@ export class Parser {
 		console.log(`${text} ${message}`);
 		this.hadError = true;
 		this.panicMode = true;
+	}
+
+	match(type: TokenType) {
+		if (this.current.type !== type) return false;
+		this.advance();
+		return true;
 	}
 
 	consume(type: TokenType, message: string) {
@@ -189,18 +200,82 @@ export class Parser {
 			return;
 		}
 
-		prefixRule(this);
+		const canAssign = precedence <= Precendence.ASSIGNMENT;
+		prefixRule(this, canAssign);
+
 		while (precedence <= this.getRule(this.current.type)[0]) {
 			this.advance();
 			const infix = this.getRule(this.previous.type)[2] as ParseFn;
 			if (infix) {
-				infix(this);
+				infix(this, canAssign);
 			}
 		}
+
+		if (canAssign && this.match(TokenType.EQUAL)) {
+			this.errorAt(this.current, "Invalid assignment target.");
+		}
+	}
+
+	parseVariable(err: string) {
+		this.consume(TokenType.IDENTIFIER, err);
+		return this.identifierConstant(this.previous);
+	}
+
+	namedVariable(name: Token, canAssign: boolean) {
+		const arg = this.identifierConstant(name);
+
+		if (canAssign && this.match(TokenType.EQUAL)) {
+			this.expression();
+			this.emitBytes(OpCode.SET_GLOBAL, arg);
+		} else {
+			this.emitBytes(OpCode.GET_GLOBAL, arg);
+		}
+	}
+
+	identifierConstant(name: Token) {
+		return this.currentChunk().addConstant({
+			type: "string",
+			value: name.lexeme,
+		});
 	}
 
 	expression() {
 		this.parsePrecedence(Precendence.ASSIGNMENT);
+	}
+
+	expressionStatement() {
+		this.expression();
+		this.emitByte(OpCode.POP);
+	}
+
+	statement() {
+		this.expressionStatement();
+	}
+
+	varDeclaration() {
+		const global = this.parseVariable("Expect Variable Name");
+
+		if (this.match(TokenType.EQUAL)) {
+			this.expression();
+		} else {
+			this.emitByte(OpCode.NIL);
+		}
+
+		this.defineVariable(global);
+	}
+
+	declaration() {
+		if (this.match(TokenType.VAR)) {
+			this.varDeclaration();
+		} else {
+			this.statement();
+		}
+
+		if (this.panicMode) this.synchronize();
+	}
+
+	defineVariable(global: number) {
+		this.emitBytes(OpCode.DEFINE_GLOBAL, global);
 	}
 
 	advance() {
@@ -210,6 +285,25 @@ export class Parser {
 			if (this.current.type !== TokenType.ERROR) break;
 
 			this.errorAt(this.current, this.current.lexeme);
+		}
+	}
+
+	synchronize() {
+		this.panicMode = false;
+
+		while (this.current.type !== TokenType.EOF) {
+			switch (this.current.type) {
+				case TokenType.CLASS:
+				case TokenType.FN:
+				case TokenType.VAR:
+				case TokenType.FOR:
+				case TokenType.IF:
+				case TokenType.WHILE:
+				case TokenType.RETURN:
+					return;
+			}
+
+			this.advance();
 		}
 	}
 

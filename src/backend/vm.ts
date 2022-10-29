@@ -6,6 +6,7 @@ import { Compile } from "../frontend/compiler";
 
 export class VM {
 	public instruction = -1;
+	public globals = new Map<string, RueValue>();
 	constructor(public chunk: Chunk) {}
 
 	readByte() {
@@ -59,9 +60,9 @@ export class VM {
 
 		switch (op) {
 			case OpCode.GREATER:
-				return v1.value > v2.value;
+				return v2.value > v1.value;
 			case OpCode.LESS:
-				return v1.value < v2.value;
+				return v2.value < v1.value;
 		}
 
 		return false;
@@ -145,6 +146,37 @@ export class VM {
 					const a = this.pop();
 					const b = this.pop();
 					this.push({ type: "boolean", value: ValuesEqual(a, b) });
+					break;
+				}
+				case OpCode.POP:
+					this.pop();
+					break;
+				case OpCode.DEFINE_GLOBAL: {
+					const name = this.readConstant() as RueString;
+					this.globals.set(name.value, this.peek(0));
+					this.pop();
+					break;
+				}
+				case OpCode.GET_GLOBAL: {
+					const name = this.readConstant() as RueString;
+					if (!this.globals.has(name.value)) {
+						this.runtimeError(`Undefined variable: ${name.value}`);
+						return InterpretResult.RUNTIME_ERROR;
+					}
+
+					const value = this.globals.get(name.value);
+					this.push(value);
+					console.log(this.globals);
+					break;
+				}
+				case OpCode.SET_GLOBAL: {
+					const name = this.readConstant() as RueString;
+					if (!this.globals.has(name.value)) {
+						this.runtimeError(`Undefined variable ${name.value}`);
+						return InterpretResult.RUNTIME_ERROR;
+					}
+					this.globals.set(name.value, this.peek(0));
+					break;
 				}
 			}
 		}
