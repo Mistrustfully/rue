@@ -4,6 +4,7 @@ import { OpCode } from "../common/opcode";
 import { Token, TokenType } from "../common/token";
 import { RueValue } from "../common/value";
 import { stringToDigit } from "../util";
+import { Compiler } from "./compiler";
 import { Scanner } from "./scanner";
 
 type ParseFn = (parser: Parser, canAssign: boolean) => void;
@@ -136,7 +137,7 @@ function variable(parser: Parser, canAssign: boolean) {
 }
 
 export class Parser {
-	constructor(public scanner: Scanner, public compilingChunk: Chunk) {}
+	constructor(public currentCompiler: Compiler, public scanner: Scanner, public compilingChunk: Chunk) {}
 	public previous!: Token;
 	public current!: Token;
 	public hadError = false;
@@ -188,6 +189,21 @@ export class Parser {
 		this.emitBytes(OpCode.CONSTANT, this.currentChunk().addConstant(constant));
 	}
 
+	startScope() {
+		this.currentCompiler.scopeDepth++;
+	}
+
+	endScope() {
+		this.currentCompiler.scopeDepth--;
+		while (
+			this.currentCompiler.localCount > 0 &&
+			this.currentCompiler.locals[this.currentCompiler.localCount - 1].depth > this.currentCompiler.scopeDepth
+		) {
+			this.emitByte(OpCode.POP);
+			this.currentCompiler.localCount--;
+		}
+	}
+
 	getRule(type: TokenType) {
 		return rules[type] || DefaultRule;
 	}
@@ -218,17 +234,28 @@ export class Parser {
 
 	parseVariable(err: string) {
 		this.consume(TokenType.IDENTIFIER, err);
+
+		this.declareVariable();
+		if (this.currentCompiler.scopeDepth > 0) return 0;
+
 		return this.identifierConstant(this.previous);
 	}
 
 	namedVariable(name: Token, canAssign: boolean) {
-		const arg = this.identifierConstant(name);
+		let [getOp, setOp] = [OpCode.GET_LOCAL, OpCode.SET_LOCAL];
+		let arg = this.resolveLocal(name.lexeme);
+
+		if (arg === -1) {
+			arg = this.identifierConstant(name);
+			getOp = OpCode.GET_GLOBAL;
+			setOp = OpCode.SET_GLOBAL;
+		}
 
 		if (canAssign && this.match(TokenType.EQUAL)) {
 			this.expression();
-			this.emitBytes(OpCode.SET_GLOBAL, arg);
+			this.emitBytes(setOp, arg);
 		} else {
-			this.emitBytes(OpCode.GET_GLOBAL, arg);
+			this.emitBytes(getOp, arg);
 		}
 	}
 
@@ -237,6 +264,14 @@ export class Parser {
 			type: "string",
 			value: name.lexeme,
 		});
+	}
+
+	block() {
+		while (this.current.type !== TokenType.RIGHT_BRACE && this.current.type !== TokenType.EOF) {
+			this.declaration();
+		}
+
+		this.consume(TokenType.RIGHT_BRACE, "Expect '}' after block.");
 	}
 
 	expression() {
@@ -267,6 +302,10 @@ export class Parser {
 	declaration() {
 		if (this.match(TokenType.VAR)) {
 			this.varDeclaration();
+		} else if (this.match(TokenType.LEFT_BRACE)) {
+			this.startScope();
+			this.block();
+			this.endScope();
 		} else {
 			this.statement();
 		}
@@ -274,8 +313,58 @@ export class Parser {
 		if (this.panicMode) this.synchronize();
 	}
 
+	markInitialized() {
+		console.log(this.currentCompiler.locals);
+		this.currentCompiler.locals[this.currentCompiler.localCount - 1].depth = this.currentCompiler.scopeDepth;
+	}
+
+	addLocal(name: Token) {
+		this.currentCompiler.locals[this.currentCompiler.localCount++] = {
+			name: name.lexeme,
+			depth: -1,
+		};
+	}
+
 	defineVariable(global: number) {
+		if (this.currentCompiler.scopeDepth > 0) {
+			this.markInitialized();
+			return;
+		}
 		this.emitBytes(OpCode.DEFINE_GLOBAL, global);
+	}
+
+	declareVariable() {
+		if (this.currentCompiler.scopeDepth === 0) return;
+		const name = this.previous;
+
+		for (let i = this.currentCompiler.localCount - 1; i >= 0; i--) {
+			const local = this.currentCompiler.locals[i];
+
+			if (local.depth !== -1 && local.depth < this.currentCompiler.scopeDepth) {
+				break;
+			}
+
+			if (local.name === name.lexeme) {
+				this.errorAt(this.current, "Already a variable with this name in this scope!");
+			}
+		}
+
+		this.addLocal(name);
+	}
+
+	resolveLocal(name: string) {
+		for (let i = this.currentCompiler.localCount - 1; i >= 0; i--) {
+			const local = this.currentCompiler.locals[i];
+			if (local.name === name) {
+				if (local.depth == -1) {
+					this.errorAt(this.current, "Can't read local variable in its own initializer.");
+				}
+
+				return i;
+			}
+		}
+
+		return -1;
 	}
 
 	advance() {

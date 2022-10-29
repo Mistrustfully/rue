@@ -1,3 +1,8 @@
-var breakfast = "beignets";
-var beverage = "cafe au lait";
-breakfast = "beignets with " + beverage;
+{
+	var hello = "hello"
+	var world = "world"
+
+	world = ""
+
+	(hello + " " + world)
+}

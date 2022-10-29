@@ -29,6 +29,11 @@ function constantInstruction(name: string, chunk: Chunk, offset: number): [numbe
 	return [offset + 2, `${name} ${padNumber(constant, 4)} ${printValue(chunk.constants[constant])}`];
 }
 
+function byteInstruction(name: string, chunk: Chunk, offset: number): [number, string] {
+	const slot = chunk.code[offset + 1];
+	return [offset + 2, `${name} ${padNumber(slot, 4)}`];
+}
+
 export namespace Debug {
 	export const DEBUG_TRACE_EXECUTION = true;
 
@@ -72,6 +77,10 @@ export namespace Debug {
 				return constantInstruction("OP_GET_GLOBAL", chunk, offset);
 			case OpCode.SET_GLOBAL:
 				return constantInstruction("OP_SET_GLOBAL", chunk, offset);
+			case OpCode.GET_LOCAL:
+				return byteInstruction("OP_GET_LOCAL", chunk, offset);
+			case OpCode.SET_LOCAL:
+				return byteInstruction("OP_SET_LOCAL", chunk, offset);
 		}
 
 		return [offset + 1, "UNKNOWN_OP"];

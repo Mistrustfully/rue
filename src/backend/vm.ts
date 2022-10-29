@@ -178,6 +178,16 @@ export class VM {
 					this.globals.set(name.value, this.peek(0));
 					break;
 				}
+				case OpCode.GET_LOCAL: {
+					const slot = this.readByte();
+					this.push(this.chunk.stack[slot]);
+					break;
+				}
+				case OpCode.SET_LOCAL: {
+					const slot = this.readByte();
+					this.chunk.stack[slot] = this.peek(0);
+					break;
+				}
 			}
 		}
 	}
