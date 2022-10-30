@@ -1,8 +1,8 @@
 var hello = "hello"
 {
 	var hello = "shadowed"
-	print(hello)
+	assert(hello == "shadowed")
 }
-print(hello)
+assert(hello == "hello")
 
 return nil

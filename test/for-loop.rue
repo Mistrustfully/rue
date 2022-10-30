@@ -1,5 +1,8 @@
-for var i = 0, i < 3, i = i + 1 {
-	print(i)
+var add = 0;
+
+for var i = 0, i <= 3, i = i + 1 {
+	add = i + add
 }
 
+assert(add == 6)
 return nil

@@ -2,4 +2,6 @@ fn concat(a, b) {
 	return a + " " + b
 }
 
-var c = concat("a", "b")
+var concated = concat("a", "b")
+assert(concated == "a b")
+return concated

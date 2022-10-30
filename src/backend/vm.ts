@@ -1,6 +1,6 @@
 import { Debug } from "../common/debug";
 import { OpCode } from "../common/opcode";
-import { RueBoolean, RueFunction, RueNumber, RueString, RueValue, ValuesEqual } from "../common/value";
+import { RueBoolean, RueFunction, RueNative, RueNumber, RueString, RueValue, ValuesEqual } from "../common/value";
 import { Compile } from "../frontend/compiler";
 
 export class CallFrame {
@@ -146,8 +146,8 @@ export class VM {
 
 					this.frameCount--;
 
-					this.push(result);
 					frame = this.getFrame();
+					this.push(result);
 					break;
 				}
 				case OpCode.CONSTANT:
@@ -292,20 +292,18 @@ export class VM {
 }
 
 export namespace VirtualMachine {
-	export function Interpret(source: string): [InterpretResult, RueValue?] {
+	export function Interpret(source: string, natives?: Map<string, RueNative>): [InterpretResult, RueValue?] {
 		const [success, fn] = Compile(source);
 		if (success === false) return [InterpretResult.COMPILE_ERROR];
 
 		const vm = new VM();
-		vm.globals.set("print", {
-			type: "nativeFunction",
-			value: (print: RueValue) => {
-				if (print.type === "nil") return print;
 
-				console.log("\tPRINT: " + print.value);
-				return { type: "nil" };
-			},
-		});
+		if (natives) {
+			natives.forEach((native, name) => {
+				vm.globals.set(name, native);
+			});
+		}
+
 		const callFrame = new CallFrame(fn);
 		vm.frames[vm.frameCount++] = callFrame;
 
