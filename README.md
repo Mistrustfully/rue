@@ -1,17 +1,40 @@
 # rue
 An interpreted programming language written in Typescript.
 
-## Planned Features
 
-[ ] Functions
+## Features
+* Functions
 ```rs
-use {std::print}
+fn fib() {
+	if n <= 2 {
+		return 1
+	}
 
-fn hello_world() {
-    print("Hello World")
+	return fib(n - 1) + fib(n - 2)
 }
 
-hello_world()
+assert(fib(9) == 34)
+```
+
+* For Loops
+```rs
+var add = 0;
+
+for var i = 0, i <= 3, i = i + 1 {
+	add = i + add
+}
+
+assert(add == 6)
+```
+
+See the [/test/](tests) for examples on how to program in Rue!
+
+## Planned Features
+
+[ ] Use keyword
+```rs
+use {std::print}
+print("Hello World")
 ```
 
 [ ] Classes

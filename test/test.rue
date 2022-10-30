@@ -1,7 +1,0 @@
-fn concat(a, b) { 
-	return a + b
-}
-
-var c = concat(concat("A", "B"), "C")
-assert(c == "ABC")
-
