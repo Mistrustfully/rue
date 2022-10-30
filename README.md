@@ -27,7 +27,7 @@ for var i = 0, i <= 3, i = i + 1 {
 assert(add == 6)
 ```
 
-See the [/test/](tests) for examples on how to program in Rue!
+See the [test](tests) for examples on how to program in Rue!
 
 ## Planned Features
 
