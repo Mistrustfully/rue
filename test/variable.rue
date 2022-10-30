@@ -5,4 +5,3 @@ var hello = "hello"
 }
 assert(hello == "hello")
 
-return nil

@@ -23,6 +23,20 @@ fs.readFile(path.resolve(file), (err, data) => {
 					},
 				},
 			],
+			[
+				"assert",
+				{
+					type: "nativeFunction",
+					value: (check: RueValue) => {
+						if (check.type !== "nil" && check.type !== "boolean") return { type: "boolean", value: true };
+						if (check.type === "nil") {
+							return;
+						}
+						console.log("assert: " + check.value);
+						return check;
+					},
+				},
+			],
 		]),
 	);
 	console.log(returnValue);

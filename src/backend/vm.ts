@@ -13,7 +13,6 @@ export class CallFrame {
 }
 
 export class VM {
-	public instruction = -1;
 	public globals = new Map<string, RueValue>();
 	public frames: CallFrame[] = [];
 	public frameCount = 0;
@@ -83,6 +82,16 @@ export class VM {
 		return this.getFrame().slots.pop();
 	}
 
+	popCount(c: number) {
+		if (Debug.DEBUG_STACK) console.log(this.getFrame().slots);
+		const values = [];
+		for (let i = 0; i < c; i++) {
+			values.push(this.pop());
+		}
+
+		return values.reverse();
+	}
+
 	call(fn: RueFunction, argCount: number) {
 		if (argCount != fn.value.arity) {
 			this.runtimeError(`Expected ${fn.value.arity} arguments, but got ${argCount}.`);
@@ -90,11 +99,10 @@ export class VM {
 		}
 
 		const frame = new CallFrame(fn);
-		frame.slots = this.getFrame().slots.slice(
-			this.getFrame().slots.length - argCount,
-			this.getFrame().slots.length,
-		);
-
+		// Pop off all the args off the current stack.
+		frame.slots.push(...this.popCount(argCount));
+		// Pop our own function off the stack
+		this.pop();
 		this.frames[this.frameCount++] = frame;
 		return true;
 	}
@@ -103,10 +111,7 @@ export class VM {
 		if (callee.type === "function") {
 			return this.call(callee, argCount);
 		} else if (callee.type == "nativeFunction") {
-			const result = callee.value(
-				...this.getFrame().slots.slice(this.getFrame().slots.length - argCount, this.getFrame().slots.length),
-			);
-
+			const result = callee.value(...this.popCount(argCount));
 			this.push(result);
 			return true;
 		}
@@ -139,8 +144,8 @@ export class VM {
 			switch (instruction) {
 				case OpCode.RETURN: {
 					const result = this.pop();
+					this.pop(); // Pop the function off the stack
 					if (this.frameCount === 1) {
-						this.pop();
 						return [InterpretResult.OK, result];
 					}
 
@@ -283,7 +288,7 @@ export class VM {
 					break;
 				}
 				default: {
-					this.runtimeError(`Unknown instruction! ${instruction}`);
+					this.runtimeError(`Unknown instruction: ${instruction} @ ${this.getFrame().instruction}`);
 					return [InterpretResult.RUNTIME_ERROR];
 				}
 			}

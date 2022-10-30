@@ -1,7 +1,7 @@
 fn concat(a, b) {
-	return a + " " + b
+	return a + b
 }
 
-var concated = concat("a", "b")
-assert(concated == "a b")
-return concated
+var abc = concat(concat("A", "B"), "C")
+assert(abc == "ABC")
+

@@ -42,7 +42,7 @@ function jumpInstruction(name: string, chunk: Chunk, offset: number, direction =
 
 export namespace Debug {
 	/* eslint-disable */
-	export let DEBUG_TRACE_EXECUTION = false;
+	export let DEBUG_TRACE_EXECUTION = true;
 	export let DEBUG_STACK = false;
 
 	export function DisassembleInstruction(chunk: Chunk, offset: number): [number, string] {
