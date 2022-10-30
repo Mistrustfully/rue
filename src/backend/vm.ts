@@ -1,24 +1,37 @@
-import { Chunk } from "../common/chunk";
 import { Debug } from "../common/debug";
 import { OpCode } from "../common/opcode";
-import { RueBoolean, RueNumber, RueString, RueValue, ValuesEqual } from "../common/value";
+import { RueBoolean, RueFunction, RueNumber, RueString, RueValue, ValuesEqual } from "../common/value";
 import { Compile } from "../frontend/compiler";
+
+export class CallFrame {
+	function: RueFunction;
+	instruction = -1;
+	slots: RueValue[] = [];
+	constructor(fn: RueFunction) {
+		this.function = fn;
+	}
+}
 
 export class VM {
 	public instruction = -1;
 	public globals = new Map<string, RueValue>();
-	constructor(public chunk: Chunk) {}
+	public frames: CallFrame[] = [];
+	public frameCount = 0;
+
+	getFrame() {
+		return this.frames[this.frameCount - 1];
+	}
 
 	readByte() {
-		return this.chunk.code[++this.instruction];
+		return this.getFrame().function.value.chunk.code[++this.getFrame().instruction];
 	}
 
 	readConstant() {
-		return this.chunk.constants[this.readByte()];
+		return this.getFrame().function.value.chunk.constants[this.readByte()];
 	}
 
 	peek(distance: number) {
-		return this.chunk.stack[this.chunk.stack.length - distance - 1];
+		return this.getFrame().slots[this.getFrame().slots.length - distance - 1];
 	}
 
 	binaryOp(op: OpCode) {
@@ -61,32 +74,82 @@ export class VM {
 	}
 
 	push(v: RueValue) {
-		if (Debug.DEBUG_TRACE_EXECUTION) console.log(this.chunk.stack);
-		return this.chunk.stack.push(v);
+		if (Debug.DEBUG_STACK) console.log(this.getFrame().slots);
+		return this.getFrame().slots.push(v);
 	}
 
 	pop() {
-		if (Debug.DEBUG_TRACE_EXECUTION) console.log(this.chunk.stack);
-		return this.chunk.stack.pop();
+		if (Debug.DEBUG_STACK) console.log(this.getFrame().slots);
+		return this.getFrame().slots.pop();
+	}
+
+	call(fn: RueFunction, argCount: number) {
+		if (argCount != fn.value.arity) {
+			this.runtimeError(`Expected ${fn.value.arity} arguments, but got ${argCount}.`);
+			return false;
+		}
+
+		const frame = new CallFrame(fn);
+		frame.slots = this.getFrame().slots.slice(
+			this.getFrame().slots.length - argCount,
+			this.getFrame().slots.length,
+		);
+
+		this.frames[this.frameCount++] = frame;
+		return true;
+	}
+
+	callValue(callee: RueValue, argCount: number) {
+		if (callee.type === "function") {
+			return this.call(callee, argCount);
+		} else if (callee.type == "nativeFunction") {
+			const result = callee.value(
+				...this.getFrame().slots.slice(this.getFrame().slots.length - argCount, this.getFrame().slots.length),
+			);
+
+			this.push(result);
+			return true;
+		}
+
+		this.runtimeError("Call only call functions and classes.");
+		return false;
 	}
 
 	runtimeError(message: string) {
 		console.log(message);
-		console.log(`[line ${this.chunk.lines[this.instruction]}] in script`);
+		for (let i = this.frameCount - 1; i >= 0; i--) {
+			const frame = this.frames[i];
+			console.log(
+				`[line ${frame.function.value.chunk.lines[frame.instruction - 1]}] in ${frame.function.value.name}()`,
+			);
+		}
 	}
 
 	run(): [InterpretResult, RueValue?] {
+		let frame = this.getFrame();
+
 		/* eslint-disable no-constant-condition */
 		while (true) {
 			const instruction = this.readByte();
 
 			if (Debug.DEBUG_TRACE_EXECUTION) {
-				console.log(Debug.DisassembleInstruction(this.chunk, this.instruction)[1]);
+				console.log(Debug.DisassembleInstruction(frame.function.value.chunk, frame.instruction)[1]);
 			}
 
 			switch (instruction) {
-				case OpCode.RETURN:
-					return [InterpretResult.OK, this.pop()];
+				case OpCode.RETURN: {
+					const result = this.pop();
+					if (this.frameCount === 1) {
+						this.pop();
+						return [InterpretResult.OK, result];
+					}
+
+					this.frameCount--;
+
+					this.push(result);
+					frame = this.getFrame();
+					break;
+				}
 				case OpCode.CONSTANT:
 					this.push(this.readConstant());
 					break;
@@ -180,12 +243,12 @@ export class VM {
 				}
 				case OpCode.GET_LOCAL: {
 					const slot = this.readByte();
-					this.push(this.chunk.stack[slot]);
+					this.push(frame.slots[slot]);
 					break;
 				}
 				case OpCode.SET_LOCAL: {
 					const slot = this.readByte();
-					this.chunk.stack[slot] = this.peek(0);
+					frame.slots[slot] = this.peek(0);
 					break;
 				}
 				case OpCode.JUMP_IF_FALSE: {
@@ -197,19 +260,31 @@ export class VM {
 					}
 
 					if (next.type === "nil" || next.value === false) {
-						this.instruction += offset;
+						frame.instruction += offset;
 					}
 					break;
 				}
 				case OpCode.JUMP: {
 					const offset = this.readByte();
-					this.instruction += offset;
+					frame.instruction += offset;
 					break;
 				}
 				case OpCode.LOOP: {
 					const offset = this.readByte();
-					this.instruction -= offset;
+					frame.instruction -= offset;
 					break;
+				}
+				case OpCode.CALL: {
+					const argCount = this.readByte();
+					if (!this.callValue(this.peek(argCount), argCount)) {
+						return [InterpretResult.RUNTIME_ERROR];
+					}
+					frame = this.getFrame();
+					break;
+				}
+				default: {
+					this.runtimeError(`Unknown instruction! ${instruction}`);
+					return [InterpretResult.RUNTIME_ERROR];
 				}
 			}
 		}
@@ -218,13 +293,24 @@ export class VM {
 
 export namespace VirtualMachine {
 	export function Interpret(source: string): [InterpretResult, RueValue?] {
-		const chunk = new Chunk();
+		const [success, fn] = Compile(source);
+		if (success === false) return [InterpretResult.COMPILE_ERROR];
 
-		if (!Compile(source, chunk)) {
-			return [InterpretResult.COMPILE_ERROR];
-		}
+		const vm = new VM();
+		vm.globals.set("print", {
+			type: "nativeFunction",
+			value: (print: RueValue) => {
+				if (print.type === "nil") return print;
 
-		const vm = new VM(chunk);
+				console.log("\tPRINT: " + print.value);
+				return { type: "nil" };
+			},
+		});
+		const callFrame = new CallFrame(fn);
+		vm.frames[vm.frameCount++] = callFrame;
+
+		vm.push(fn);
+
 		return vm.run();
 	}
 }

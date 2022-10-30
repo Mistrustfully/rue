@@ -1,3 +1,4 @@
+import { exit } from "process";
 import { padNumber } from "../util";
 import { Chunk } from "./chunk";
 import { OpCode } from "./opcode";
@@ -42,6 +43,7 @@ function jumpInstruction(name: string, chunk: Chunk, offset: number, direction =
 export namespace Debug {
 	/* eslint-disable */
 	export let DEBUG_TRACE_EXECUTION = true;
+	export let DEBUG_STACK = true;
 
 	export function DisassembleInstruction(chunk: Chunk, offset: number): [number, string] {
 		const instruction = chunk.code[offset];
@@ -93,8 +95,9 @@ export namespace Debug {
 				return jumpInstruction("OP_JUMP", chunk, offset);
 			case OpCode.LOOP:
 				return jumpInstruction("OP_LOOP", chunk, offset, -1);
+			case OpCode.CALL:
+				return byteInstruction("OP_CALL", chunk, offset);
 		}
-
 		return [offset + 1, "UNKNOWN_OP"];
 	}
 

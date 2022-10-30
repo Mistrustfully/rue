@@ -4,7 +4,7 @@ import { OpCode } from "../common/opcode";
 import { Token, TokenType } from "../common/token";
 import { RueValue } from "../common/value";
 import { stringToDigit } from "../util";
-import { Compiler } from "./compiler";
+import { Compile, Compiler, FunctionType } from "./compiler";
 import { Scanner } from "./scanner";
 
 type ParseFn = (parser: Parser, canAssign: boolean) => void;
@@ -25,7 +25,7 @@ const enum Precendence {
 }
 
 const rules: { [index in number]: [Precendence, ParseFn?, ParseFn?] } = {
-	[TokenType.LEFT_PAREN]: [Precendence.NONE, grouping, undefined],
+	[TokenType.LEFT_PAREN]: [Precendence.CALL, grouping, call],
 	[TokenType.MINUS]: [Precendence.TERM, unary, binary],
 	[TokenType.PLUS]: [Precendence.TERM, undefined, binary],
 	[TokenType.SLASH]: [Precendence.FACTOR, undefined, binary],
@@ -54,6 +54,11 @@ const rules: { [index in number]: [Precendence, ParseFn?, ParseFn?] } = {
 function grouping(parser: Parser) {
 	parser.expression();
 	parser.consume(TokenType.RIGHT_PAREN, "Expect ')' after expression");
+}
+
+function call(parser: Parser) {
+	const argCount = parser.argumentList();
+	parser.emitBytes(OpCode.CALL, argCount);
 }
 
 function binary(parser: Parser) {
@@ -158,14 +163,16 @@ function variable(parser: Parser, canAssign: boolean) {
 }
 
 export class Parser {
-	constructor(public currentCompiler: Compiler, public scanner: Scanner, public compilingChunk: Chunk) {}
+	constructor(public currentCompiler: Compiler, public scanner: Scanner) {
+		currentCompiler.locals[currentCompiler.localCount++] = { depth: 0, name: "" };
+	}
 	public previous!: Token;
 	public current!: Token;
 	public hadError = false;
 	public panicMode = false;
 
 	currentChunk() {
-		return this.compilingChunk;
+		return this.currentCompiler.function.value.chunk;
 	}
 
 	errorAt(token: Token, message: string) {
@@ -313,6 +320,45 @@ export class Parser {
 		this.consume(TokenType.RIGHT_BRACE, "Expect '}' after block.");
 	}
 
+	argumentList() {
+		let argCount = 0;
+		if (this.current.type !== TokenType.RIGHT_PAREN) {
+			do {
+				this.expression();
+				argCount++;
+			} while (this.match(TokenType.COMMA));
+		}
+		this.consume(TokenType.RIGHT_PAREN, "Expect ')' after arguments.");
+		return argCount;
+	}
+
+	function(type: FunctionType) {
+		const compiler = new Compiler(
+			{ type: "function", value: { chunk: new Chunk(), arity: 0, name: this.previous.lexeme } },
+			type,
+		);
+		compiler.enclosing = this.currentCompiler;
+		this.currentCompiler = compiler;
+		this.startScope();
+
+		this.consume(TokenType.LEFT_PAREN, "Expect '(' after function name.");
+
+		if (this.current.type !== TokenType.RIGHT_PAREN) {
+			do {
+				this.currentCompiler.function.value.arity++;
+				const constant = this.parseVariable("Expect Parameter name.");
+				this.defineVariable(constant);
+			} while (this.match(TokenType.COMMA));
+		}
+
+		this.consume(TokenType.RIGHT_PAREN, "Expect ')' after parameters.");
+		this.consume(TokenType.LEFT_BRACE, "Expect '{' before function body.");
+		this.block();
+
+		const fn = this.endCompiler();
+		this.emitConstant(fn);
+	}
+
 	expression() {
 		this.parsePrecedence(Precendence.ASSIGNMENT);
 	}
@@ -404,6 +450,23 @@ export class Parser {
 		this.endScope();
 	}
 
+	fnDeclaration() {
+		const global = this.parseVariable("Expect function name.");
+		this.markInitialized();
+
+		this.function(FunctionType.FUNCTION);
+		this.defineVariable(global);
+	}
+
+	returnStatement() {
+		if (this.current.type === TokenType.EOF || this.current.type === TokenType.RIGHT_BRACE) {
+			this.emitByte(OpCode.NIL);
+		} else {
+			this.expression();
+		}
+		this.emitByte(OpCode.RETURN);
+	}
+
 	statement() {
 		this.expressionStatement();
 	}
@@ -423,6 +486,8 @@ export class Parser {
 	declaration() {
 		if (this.match(TokenType.VAR)) {
 			this.varDeclaration();
+		} else if (this.match(TokenType.FN)) {
+			this.fnDeclaration();
 		} else if (this.match(TokenType.IF)) {
 			this.ifStatement();
 		} else if (this.match(TokenType.WHILE)) {
@@ -433,6 +498,8 @@ export class Parser {
 			this.startScope();
 			this.block();
 			this.endScope();
+		} else if (this.match(TokenType.RETURN)) {
+			this.returnStatement();
 		} else {
 			this.statement();
 		}
@@ -441,6 +508,7 @@ export class Parser {
 	}
 
 	markInitialized() {
+		if (this.currentCompiler.scopeDepth === 0) return;
 		this.currentCompiler.locals[this.currentCompiler.localCount - 1].depth = this.currentCompiler.scopeDepth;
 	}
 
@@ -523,9 +591,20 @@ export class Parser {
 	}
 
 	endCompiler() {
-		this.emitByte(OpCode.RETURN);
 		if (Debug.DEBUG_TRACE_EXECUTION && !this.hadError) {
-			Debug.DisassembleChunk(this.currentChunk(), "code");
+			Debug.DisassembleChunk(this.currentChunk(), this.currentCompiler.function.value.name);
 		}
+
+		const fn = this.currentCompiler.function;
+		this.currentCompiler = this.currentCompiler.enclosing;
+
+		if (this.currentCompiler === undefined) {
+			if (fn.value.chunk.code[fn.value.chunk.code.length - 2] !== OpCode.RETURN) {
+				fn.value.chunk.write(OpCode.NIL, this.current.line);
+				fn.value.chunk.write(OpCode.RETURN, this.current.line);
+			}
+		}
+
+		return fn;
 	}
 }

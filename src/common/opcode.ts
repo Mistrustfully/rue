@@ -3,6 +3,7 @@ export const enum OpCode {
 	JUMP_IF_FALSE,
 	JUMP,
 	LOOP,
+	CALL,
 	CONSTANT,
 	POP,
 	DEFINE_GLOBAL,

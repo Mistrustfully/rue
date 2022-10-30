@@ -1,0 +1,5 @@
+fn concat(a, b) {
+	return a + " " + b
+}
+
+var c = concat("a", "b")

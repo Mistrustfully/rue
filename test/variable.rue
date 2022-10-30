@@ -1,4 +1,8 @@
 var hello = "hello"
 {
-	var hello = "shadow"
+	var hello = "shadowed"
+	print(hello)
 }
+print(hello)
+
+return nil

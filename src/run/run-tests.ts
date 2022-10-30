@@ -1,10 +1,10 @@
 import fs = require("fs");
-import path = require("path");
 
 import Rue = require("..");
 import { InterpretResult } from "../backend/vm";
 
 Rue.Debug.DEBUG_TRACE_EXECUTION = false;
+Rue.Debug.DEBUG_STACK = false;
 
 let failed = false;
 fs.readdirSync("./test/").forEach((file) => {
