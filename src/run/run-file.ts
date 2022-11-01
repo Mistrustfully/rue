@@ -32,7 +32,11 @@ fs.readFile(path.resolve(file), (err, data) => {
 						if (check.type === "nil") {
 							return;
 						}
-						console.log("assert: " + check.value);
+
+						if (check.value === false) {
+							return { type: "error", value: "Assert failed!" };
+						}
+
 						return check;
 					},
 				},

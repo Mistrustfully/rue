@@ -29,7 +29,12 @@ export type RueNative = {
 	value: (...args: RueValue[]) => RueValue;
 };
 
-export type RueValue = RueString | RueNumber | RueBoolean | RueNil | RueFunction | RueNative;
+export type RueError = {
+	type: "error";
+	value: string;
+};
+
+export type RueValue = RueString | RueNumber | RueBoolean | RueNil | RueFunction | RueNative | RueError;
 export function ValuesEqual(a: RueValue, b: RueValue) {
 	if (a.type !== b.type) return false;
 	if (a.type === "nil" || b.type === "nil") return true;

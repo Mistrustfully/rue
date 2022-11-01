@@ -110,6 +110,11 @@ export class VM {
 			return this.call(callee, argCount);
 		} else if (callee.type == "nativeFunction") {
 			const result = callee.value(...this.popCount(argCount));
+			if (result.type === "error") {
+				this.runtimeError(result.value);
+				return false;
+			}
+
 			this.push(result);
 			return true;
 		}

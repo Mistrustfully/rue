@@ -12,7 +12,6 @@ const start = performance.now();
 let failed = false;
 fs.readdirSync("./test/").forEach((file) => {
 	const data = fs.readFileSync("./test/" + file);
-	let didThisFail = false;
 
 	const [result] = Rue.VM.Interpret(
 		data.toString(),
@@ -36,19 +35,20 @@ fs.readdirSync("./test/").forEach((file) => {
 					value: (check: RueValue) => {
 						if (check.type !== "nil" && check.type !== "boolean") return { type: "boolean", value: true };
 						if (check.type === "nil") {
-							didThisFail = true;
 							return;
 						}
-						didThisFail = !check.value || didThisFail;
+
+						if (check.value === false) {
+							return { type: "error", value: "Assert failed!" };
+						}
+
 						return check;
 					},
 				},
 			],
 		]),
 	);
-	console.log(
-		`[${result === InterpretResult.OK && !didThisFail ? "\x1b[92mOK\x1b[0m" : "\x1b[91mFAILED\x1b[0m"}] ${file}`,
-	);
+	console.log(`[${result === InterpretResult.OK ? "\x1b[92mOK\x1b[0m" : "\x1b[91mFAILED\x1b[0m"}] ${file}`);
 	if (result !== InterpretResult.OK) {
 		failed = true;
 	}
