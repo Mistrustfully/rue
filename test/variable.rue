@@ -4,4 +4,4 @@ var hello = "hello"
 	assert(hello == "shadowed")
 }
 assert(hello == "hello")
-
+return false

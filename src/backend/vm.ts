@@ -100,9 +100,7 @@ export class VM {
 
 		const frame = new CallFrame(fn);
 		// Pop off all the args off the current stack.
-		frame.slots.push(...this.popCount(argCount));
-		// Pop our own function off the stack
-		this.pop();
+		frame.slots.push(...this.popCount(argCount + 1));
 		this.frames[this.frameCount++] = frame;
 		return true;
 	}
