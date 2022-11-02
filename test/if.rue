@@ -1,0 +1,6 @@
+var hello = "hello"
+if hello == "hello" {
+    hello = "world"    
+}
+
+assert(hello == "world")

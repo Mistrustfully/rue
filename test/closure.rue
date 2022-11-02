@@ -1,0 +1,17 @@
+fn outer() {
+    var upv = "Hello World!"
+    fn middle() {
+        fn inner() {
+            return upv
+        }
+
+        return inner
+    }
+
+    return middle
+}
+
+var middle = outer()
+var inner = middle()
+
+assert(inner() == "Hello World!")

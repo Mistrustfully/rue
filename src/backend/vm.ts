@@ -1,32 +1,43 @@
 import { Debug } from "../common/debug";
 import { OpCode } from "../common/opcode";
-import { RueBoolean, RueFunction, RueNative, RueNumber, RueString, RueValue, ValuesEqual } from "../common/value";
+import {
+	RueBoolean,
+	RueClosure,
+	RueFunction,
+	RueNative,
+	RueNumber,
+	RueString,
+	RueUpvalue,
+	RueValue,
+	ValuesEqual,
+} from "../common/value";
 import { Compile } from "../frontend/compiler";
 
 export class CallFrame {
-	function: RueFunction;
 	instruction = -1;
 	slots: RueValue[] = [];
-	constructor(fn: RueFunction) {
-		this.function = fn;
+	getFn() {
+		return this.closure.value.fn.value;
 	}
+	constructor(public closure: RueClosure) {}
 }
 
 export class VM {
 	public globals = new Map<string, RueValue>();
 	public frames: CallFrame[] = [];
 	public frameCount = 0;
+	public openUpvalues?: RueUpvalue;
 
 	getFrame() {
 		return this.frames[this.frameCount - 1];
 	}
 
 	readByte() {
-		return this.getFrame().function.value.chunk.code[++this.getFrame().instruction];
+		return this.getFrame().getFn().chunk.code[++this.getFrame().instruction];
 	}
 
 	readConstant() {
-		return this.getFrame().function.value.chunk.constants[this.readByte()];
+		return this.getFrame().getFn().chunk.constants[this.readByte()];
 	}
 
 	peek(distance: number) {
@@ -92,9 +103,9 @@ export class VM {
 		return values.reverse();
 	}
 
-	call(fn: RueFunction, argCount: number) {
-		if (argCount != fn.value.arity) {
-			this.runtimeError(`Expected ${fn.value.arity} arguments, but got ${argCount}.`);
+	call(fn: RueClosure, argCount: number) {
+		if (argCount != fn.value.fn.value.arity) {
+			this.runtimeError(`Expected ${fn.value.fn.value.arity} arguments, but got ${argCount}.`);
 			return false;
 		}
 
@@ -106,7 +117,7 @@ export class VM {
 	}
 
 	callValue(callee: RueValue, argCount: number) {
-		if (callee.type === "function") {
+		if (callee.type === "closure") {
 			return this.call(callee, argCount);
 		} else if (callee.type == "nativeFunction") {
 			const result = callee.value(...this.popCount(argCount));
@@ -123,13 +134,38 @@ export class VM {
 		return false;
 	}
 
+	captureUpvalue(local: number): RueUpvalue {
+		let prevUpvalue: RueUpvalue;
+		let upvalue = this.openUpvalues;
+
+		while (upvalue != undefined && upvalue.value.index > local) {
+			prevUpvalue = upvalue;
+			upvalue = upvalue.value.next;
+		}
+
+		if (upvalue != undefined && upvalue.value.index === local) {
+			return upvalue;
+		}
+
+		const newUpvalue: RueUpvalue = {
+			type: "upvalue",
+			value: { isLocal: true, index: local, value: this.getFrame().slots[local] },
+		};
+
+		if (prevUpvalue == undefined) {
+			this.openUpvalues = newUpvalue;
+		} else {
+			prevUpvalue.value.next = newUpvalue;
+		}
+
+		return newUpvalue;
+	}
+
 	runtimeError(message: string) {
 		console.log(message);
 		for (let i = this.frameCount - 1; i >= 0; i--) {
 			const frame = this.frames[i];
-			console.log(
-				`[line ${frame.function.value.chunk.lines[frame.instruction - 1]}] in ${frame.function.value.name}()`,
-			);
+			console.log(`[line ${frame.getFn().chunk.lines[frame.instruction - 1]}] in ${frame.getFn().name}()`);
 		}
 	}
 
@@ -141,7 +177,7 @@ export class VM {
 			const instruction = this.readByte();
 
 			if (Debug.DEBUG_TRACE_EXECUTION) {
-				console.log(Debug.DisassembleInstruction(frame.function.value.chunk, frame.instruction)[1]);
+				console.log(Debug.DisassembleInstruction(frame.getFn().chunk, frame.instruction)[1]);
 			}
 
 			switch (instruction) {
@@ -290,6 +326,30 @@ export class VM {
 					frame = this.getFrame();
 					break;
 				}
+				case OpCode.CLOSURE: {
+					const closure = this.readConstant() as RueClosure;
+					for (let i = 0; i < closure.value.fn.value.upvalueCount; i++) {
+						const isLocal = this.readByte();
+						const index = this.readByte();
+						if (isLocal === 1) {
+							closure.value.upvalues[i] = this.captureUpvalue(index);
+						} else {
+							closure.value.upvalues[i] = this.getFrame().closure.value.upvalues[index];
+						}
+					}
+					this.push(closure);
+					break;
+				}
+				case OpCode.GET_UPVALUE: {
+					const slot = this.readByte();
+					this.push(this.getFrame().closure.value.upvalues[slot].value.value);
+					break;
+				}
+				case OpCode.SET_UPVALUE: {
+					const slot = this.readByte();
+					this.getFrame().closure.value.upvalues[slot].value.value = this.peek(0);
+					break;
+				}
 				default: {
 					this.runtimeError(`Unknown instruction: ${instruction} @ ${this.getFrame().instruction}`);
 					return [InterpretResult.RUNTIME_ERROR];
@@ -312,7 +372,7 @@ export namespace VirtualMachine {
 			});
 		}
 
-		const callFrame = new CallFrame(fn);
+		const callFrame = new CallFrame({ type: "closure", value: { fn, upvalues: [] } });
 		vm.frames[vm.frameCount++] = callFrame;
 
 		vm.push(fn);

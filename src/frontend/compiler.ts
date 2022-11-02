@@ -2,12 +2,12 @@ import { Chunk } from "../common/chunk";
 import { Debug } from "../common/debug";
 import { OpCode } from "../common/opcode";
 import { Token, TokenType } from "../common/token";
-import { RueFunction, RueValue } from "../common/value";
+import { RueFunction, RueUpvalue, RueValue } from "../common/value";
 import { Parser } from "./parser";
 import { DefaultRule, ParseFn, Precendence, rules } from "./precendence";
 import { Scanner } from "./scanner";
 
-type RueLocal = { name: string; depth: number };
+type RueLocal = { name: string; depth: number; isCaptured: boolean };
 export enum FunctionType {
 	FUNCTION,
 	SCRIPT,
@@ -18,7 +18,7 @@ export function Compile(source: string): [boolean, RueFunction] {
 	const parser = new Parser(scanner);
 
 	const compiler = new Compiler(
-		{ type: "function", value: { arity: 0, name: "main", chunk: new Chunk() } },
+		{ type: "function", value: { arity: 0, upvalueCount: 0, name: "main", chunk: new Chunk() } },
 		FunctionType.SCRIPT,
 		parser,
 	);
@@ -43,7 +43,9 @@ export function Compile(source: string): [boolean, RueFunction] {
 
 export class Compiler {
 	function: RueFunction;
+	enclosing?: Compiler;
 
+	upvalues: RueUpvalue[] = [];
 	locals: RueLocal[] = [];
 	localCount = 0;
 	scopeDepth = 0;
@@ -92,8 +94,12 @@ export class Compiler {
 		bytes.forEach((byte) => this.emitByte(byte));
 	}
 
+	makeConstant(constant: RueValue) {
+		return this.currentChunk().addConstant(constant);
+	}
+
 	emitConstant(constant: RueValue) {
-		this.emitBytes(OpCode.CONSTANT, this.currentChunk().addConstant(constant));
+		this.emitBytes(OpCode.CONSTANT, this.makeConstant(constant));
 	}
 
 	emitJump(instruction: OpCode) {
@@ -334,13 +340,21 @@ export class Compiler {
 	}
 
 	namedVariable(name: Token, canAssign: boolean) {
-		let [getOp, setOp] = [OpCode.GET_LOCAL, OpCode.SET_LOCAL];
-		let arg = this.resolveLocal(name.lexeme);
+		let [getOp, setOp] = [OpCode.GET_GLOBAL, OpCode.SET_GLOBAL];
 
-		if (arg === -1) {
-			arg = this.identifierConstant(name);
-			getOp = OpCode.GET_GLOBAL;
-			setOp = OpCode.SET_GLOBAL;
+		let arg = this.resolveLocal(name);
+
+		if (arg != -1) {
+			getOp = OpCode.GET_LOCAL;
+			setOp = OpCode.SET_LOCAL;
+		} else {
+			arg = this.resolveUpvalue(name);
+			if (arg != -1) {
+				getOp = OpCode.GET_UPVALUE;
+				setOp = OpCode.SET_UPVALUE;
+			} else {
+				arg = this.identifierConstant(name);
+			}
 		}
 
 		if (canAssign && this.match(TokenType.EQUAL)) {
@@ -372,17 +386,22 @@ export class Compiler {
 
 	makeFunction(type: FunctionType) {
 		const compiler = new Compiler(
-			{ type: "function", value: { chunk: new Chunk(), arity: 0, name: this.parser.previous.lexeme } },
+			{
+				type: "function",
+				value: { chunk: new Chunk(), arity: 0, upvalueCount: 0, name: this.parser.previous.lexeme },
+			},
 			type,
 			this.parser,
 		);
 
+		compiler.enclosing = this;
 		compiler.startScope();
 		compiler.consume(TokenType.LEFT_PAREN, "Expect '(' after function name.");
 
 		if (compiler.parser.current.type !== TokenType.RIGHT_PAREN) {
 			do {
 				compiler.function.value.arity++;
+
 				const constant = compiler.parseVariable("Expect Parameter name.");
 				compiler.defineVariable(constant);
 			} while (compiler.match(TokenType.COMMA));
@@ -393,7 +412,11 @@ export class Compiler {
 		compiler.block();
 
 		const fn = compiler.endCompiler();
-		this.emitConstant(fn);
+		this.emitBytes(OpCode.CLOSURE, this.makeConstant({ type: "closure", value: { fn, upvalues: [] } }));
+
+		for (let i = 0; i < fn.value.upvalueCount; i++) {
+			this.emitBytes(compiler.upvalues[i].value.isLocal ? 1 : 0, compiler.upvalues[i].value.index);
+		}
 	}
 
 	expression() {
@@ -418,7 +441,22 @@ export class Compiler {
 		this.locals[this.localCount++] = {
 			name: name.lexeme,
 			depth: -1,
+			isCaptured: false,
 		};
+	}
+
+	addUpvalue(index: number, local: boolean) {
+		const upvalueCount = this.function.value.upvalueCount;
+
+		for (let i = 0; i < upvalueCount; i++) {
+			const upvalue = this.upvalues[i];
+			if (upvalue.value.index === index && upvalue.value.isLocal === local) {
+				return i;
+			}
+		}
+
+		this.upvalues[upvalueCount] = { type: "upvalue", value: { isLocal: local, index, value: { type: "nil" } } };
+		return this.function.value.upvalueCount++;
 	}
 
 	defineVariable(global: number) {
@@ -429,15 +467,32 @@ export class Compiler {
 		this.emitBytes(OpCode.DEFINE_GLOBAL, global);
 	}
 
-	resolveLocal(name: string) {
+	resolveLocal(name: Token) {
 		for (let i = this.localCount - 1; i >= 0; i--) {
 			const local = this.locals[i];
-			if (local.name === name) {
+			if (local.name === name.lexeme) {
 				if (local.depth == -1) {
 					this.errorAt(this.parser.current, "Can't read local variable in its own initializer.");
 				}
 				return i;
 			}
+		}
+
+		return -1;
+	}
+
+	resolveUpvalue(name: Token) {
+		if (this.enclosing === undefined) return -1;
+
+		const local = this.enclosing.resolveLocal(name);
+		if (local != -1) {
+			this.enclosing.locals[local].isCaptured = true;
+			return this.addUpvalue(local, true);
+		}
+
+		const upvalue = this.enclosing.resolveUpvalue(name);
+		if (upvalue != -1) {
+			return this.addUpvalue(upvalue, false);
 		}
 
 		return -1;
@@ -457,6 +512,6 @@ export class Compiler {
 
 	constructor(fn: RueFunction, public type: FunctionType, public parser: Parser) {
 		this.function = fn;
-		this.locals[this.localCount++] = { depth: 0, name: "" };
+		this.locals[this.localCount++] = { depth: 0, name: "", isCaptured: false };
 	}
 }

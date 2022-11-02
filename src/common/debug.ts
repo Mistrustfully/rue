@@ -1,7 +1,7 @@
 import { padNumber } from "../util";
 import { Chunk } from "./chunk";
 import { OpCode } from "./opcode";
-import { RueValue } from "./value";
+import { RueClosure, RueValue } from "./value";
 
 function printValue(val: RueValue) {
 	if (!val) {
@@ -39,10 +39,27 @@ function jumpInstruction(name: string, chunk: Chunk, offset: number, direction =
 	return [offset + 2, `${name} ${padNumber(offset + jmpOffset * direction, 4)}`];
 }
 
+function closureInstruction(name: string, chunk: Chunk, offset: number): [number, string] {
+	let coffset = offset;
+	let str = name + " fn: ";
+
+	const fn = chunk.constants[chunk.code[++coffset]] as RueClosure;
+	str += fn.value.fn.value.name + " upvalues: [ ";
+
+	for (let i = 0; i < fn.value.fn.value.upvalueCount; i++) {
+		const isLocal = chunk.code[++coffset];
+		const index = chunk.code[++coffset];
+		str += `[ local: ${isLocal === 1 ? true : false}, index: ${index} ]`;
+	}
+
+	str += " ]";
+	return [++coffset, str];
+}
+
 export namespace Debug {
 	/* eslint-disable */
-	export let DEBUG_TRACE_EXECUTION = true;
-	export let DEBUG_STACK = true;
+	export let DEBUG_TRACE_EXECUTION = false;
+	export let DEBUG_STACK = false;
 
 	export function DisassembleInstruction(chunk: Chunk, offset: number): [number, string] {
 		const instruction = chunk.code[offset];
@@ -96,8 +113,15 @@ export namespace Debug {
 				return jumpInstruction("OP_LOOP", chunk, offset, -1);
 			case OpCode.CALL:
 				return byteInstruction("OP_CALL", chunk, offset);
+			case OpCode.CLOSURE:
+				return closureInstruction("OP_CLOSURE", chunk, offset);
+			case OpCode.GET_UPVALUE:
+				return byteInstruction("OP_GET_UPVALUE", chunk, offset);
+			case OpCode.SET_UPVALUE:
+				return byteInstruction("OP_SET_UPVALUE", chunk, offset);
+			default:
+				return [offset + 1, "UNKNOWN_OP"];
 		}
-		return [offset + 1, "UNKNOWN_OP"];
 	}
 
 	export function DisassembleChunk(chunk: Chunk, name: string) {
