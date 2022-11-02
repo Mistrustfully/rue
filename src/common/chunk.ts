@@ -1,3 +1,4 @@
+import { array_length } from "../polyfills";
 import { RueValue } from "./value";
 
 export class Chunk {
@@ -14,6 +15,6 @@ export class Chunk {
 
 	addConstant(value: RueValue) {
 		this.constants.push(value);
-		return this.constants.length - 1;
+		return array_length(this.constants) - 1;
 	}
 }

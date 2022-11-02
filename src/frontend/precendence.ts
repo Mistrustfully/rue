@@ -3,6 +3,7 @@ import { Debug } from "../common/debug";
 import { OpCode } from "../common/opcode";
 import { Token, TokenType } from "../common/token";
 import { RueValue } from "../common/value";
+import { string_length, substring } from "../polyfills";
 import { stringToDigit } from "../util";
 import { Compile, Compiler, FunctionType } from "./compiler";
 import { Scanner } from "./scanner";
@@ -44,7 +45,7 @@ export const rules: { [index in number]: [Precendence, ParseFn?, ParseFn?] } = {
 	[TokenType.LESS]: [Precendence.EQUALITY, undefined, binary],
 	[TokenType.LESS_EQUAL]: [Precendence.EQUALITY, undefined, binary],
 
-	[TokenType.STRING]: [Precendence.NONE, string],
+	[TokenType.STRING]: [Precendence.NONE, string_],
 	[TokenType.IDENTIFIER]: [Precendence.NONE, variable],
 
 	[TokenType.AND]: [Precendence.AND, undefined, and_],
@@ -102,7 +103,7 @@ export function binary(compiler: Compiler) {
 
 export function number(compiler: Compiler) {
 	const number = stringToDigit(compiler.parser.previous.lexeme);
-	compiler.emitConstant({ type: "number", value: number });
+	compiler.emitConstant({ type: "number", value: number! });
 }
 
 export function unary(compiler: Compiler) {
@@ -133,10 +134,10 @@ export function literal(compiler: Compiler) {
 	}
 }
 
-export function string(compiler: Compiler) {
+export function string_(compiler: Compiler) {
 	compiler.emitConstant({
 		type: "string",
-		value: compiler.parser.previous.lexeme.substring(1, compiler.parser.previous.lexeme.length - 1),
+		value: substring(compiler.parser.previous.lexeme, 1, string_length(compiler.parser.previous.lexeme) - 1),
 	});
 }
 

@@ -1,5 +1,8 @@
 export class Token {
-	constructor(public type: TokenType, public lexeme: string, public line: number) {}
+	public type: TokenType;
+	constructor(type_: TokenType, public lexeme: string, public line: number) {
+		this.type = type_;
+	}
 }
 
 export const enum TokenType {

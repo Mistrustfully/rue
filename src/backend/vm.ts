@@ -3,7 +3,6 @@ import { OpCode } from "../common/opcode";
 import {
 	RueBoolean,
 	RueClosure,
-	RueFunction,
 	RueNative,
 	RueNumber,
 	RueString,
@@ -12,6 +11,7 @@ import {
 	ValuesEqual,
 } from "../common/value";
 import { Compile } from "../frontend/compiler";
+import { array_length, printf, reverse_array } from "../polyfills";
 
 export class CallFrame {
 	instruction = -1;
@@ -41,7 +41,7 @@ export class VM {
 	}
 
 	peek(distance: number) {
-		return this.getFrame().slots[this.getFrame().slots.length - distance - 1];
+		return this.getFrame().slots[array_length(this.getFrame().slots) - distance - 1];
 	}
 
 	binaryOp(op: OpCode) {
@@ -84,34 +84,36 @@ export class VM {
 	}
 
 	push(v: RueValue) {
-		if (Debug.DEBUG_STACK) console.log(this.getFrame().slots);
+		if (Debug.DEBUG_STACK) printf(this.getFrame().slots);
 		return this.getFrame().slots.push(v);
 	}
 
 	pop() {
-		if (Debug.DEBUG_STACK) console.log(this.getFrame().slots);
+		if (Debug.DEBUG_STACK) printf(this.getFrame().slots);
 		return this.getFrame().slots.pop();
 	}
 
 	popCount(c: number) {
-		if (Debug.DEBUG_STACK) console.log(this.getFrame().slots);
+		if (Debug.DEBUG_STACK) printf(this.getFrame().slots);
 		const values = [];
 		for (let i = 0; i < c; i++) {
-			values.push(this.pop());
+			values.push(this.pop()!);
 		}
 
-		return values.reverse();
+		return reverse_array(values);
 	}
 
 	call(fn: RueClosure, argCount: number) {
-		if (argCount != fn.value.fn.value.arity) {
+		if (argCount !== fn.value.fn.value.arity) {
 			this.runtimeError(`Expected ${fn.value.fn.value.arity} arguments, but got ${argCount}.`);
 			return false;
 		}
 
 		const frame = new CallFrame(fn);
 		// Pop off all the args off the current stack.
-		frame.slots.push(...this.popCount(argCount + 1));
+		for (const v of this.popCount(argCount + 1)) {
+			frame.slots.push(v);
+		}
 		this.frames[this.frameCount++] = frame;
 		return true;
 	}
@@ -119,7 +121,7 @@ export class VM {
 	callValue(callee: RueValue, argCount: number) {
 		if (callee.type === "closure") {
 			return this.call(callee, argCount);
-		} else if (callee.type == "nativeFunction") {
+		} else if (callee.type === "nativeFunction") {
 			const result = callee.value(...this.popCount(argCount));
 			if (result.type === "error") {
 				this.runtimeError(result.value);
@@ -134,25 +136,25 @@ export class VM {
 		return false;
 	}
 
-	captureUpvalue(local: number): RueUpvalue {
-		let prevUpvalue: RueUpvalue;
+	captureUpvalue(local_: number): RueUpvalue {
+		let prevUpvalue: RueUpvalue | undefined = undefined;
 		let upvalue = this.openUpvalues;
 
-		while (upvalue != undefined && upvalue.value.index > local) {
+		while (upvalue !== undefined && upvalue.value.index > local_) {
 			prevUpvalue = upvalue;
 			upvalue = upvalue.value.next;
 		}
 
-		if (upvalue != undefined && upvalue.value.index === local) {
+		if (upvalue !== undefined && upvalue.value.index === local_) {
 			return upvalue;
 		}
 
 		const newUpvalue: RueUpvalue = {
 			type: "upvalue",
-			value: { isLocal: true, index: local, value: this.getFrame().slots[local] },
+			value: { isLocal: true, index: local_, value: this.getFrame().slots[local_] },
 		};
 
-		if (prevUpvalue == undefined) {
+		if (prevUpvalue === undefined) {
 			this.openUpvalues = newUpvalue;
 		} else {
 			prevUpvalue.value.next = newUpvalue;
@@ -162,10 +164,10 @@ export class VM {
 	}
 
 	runtimeError(message: string) {
-		console.log(message);
+		printf(message);
 		for (let i = this.frameCount - 1; i >= 0; i--) {
 			const frame = this.frames[i];
-			console.log(`[line ${frame.getFn().chunk.lines[frame.instruction - 1]}] in ${frame.getFn().name}()`);
+			printf(`[line ${frame.getFn().chunk.lines[frame.instruction - 1]}] in ${frame.getFn().name}()`);
 		}
 	}
 
@@ -177,7 +179,7 @@ export class VM {
 			const instruction = this.readByte();
 
 			if (Debug.DEBUG_TRACE_EXECUTION) {
-				console.log(Debug.DisassembleInstruction(frame.getFn().chunk, frame.instruction)[1]);
+				printf(Debug.DisassembleInstruction(frame.getFn().chunk, frame.instruction)[1]);
 			}
 
 			switch (instruction) {
@@ -191,7 +193,7 @@ export class VM {
 					this.frameCount--;
 
 					frame = this.getFrame();
-					this.push(result);
+					this.push(result!);
 					break;
 				}
 				case OpCode.CONSTANT:
@@ -253,7 +255,7 @@ export class VM {
 				case OpCode.EQUAL: {
 					const a = this.pop();
 					const b = this.pop();
-					this.push({ type: "boolean", value: ValuesEqual(a, b) });
+					this.push({ type: "boolean", value: ValuesEqual(a!, b!) });
 					break;
 				}
 				case OpCode.POP:
@@ -273,7 +275,7 @@ export class VM {
 					}
 
 					const value = this.globals.get(name.value);
-					this.push(value);
+					this.push(value!);
 					break;
 				}
 				case OpCode.SET_GLOBAL: {
@@ -297,13 +299,13 @@ export class VM {
 				}
 				case OpCode.JUMP_IF_FALSE: {
 					const offset = this.readByte();
-					const next = this.peek(0);
-					if (next.type !== "boolean" && next.type !== "nil") {
-						this.runtimeError(`Cannot use type ${next.value} as a boolean!`);
+					const next_ = this.peek(0);
+					if (next_.type !== "boolean" && next_.type !== "nil") {
+						this.runtimeError(`Cannot use type ${next_.value} as a boolean!`);
 						return [InterpretResult.RUNTIME_ERROR];
 					}
 
-					if (next.type === "nil" || next.value === false) {
+					if (next_.type === "nil" || next_.value === false) {
 						frame.instruction += offset;
 					}
 					break;
