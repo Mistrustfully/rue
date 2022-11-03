@@ -1,12 +1,30 @@
 export const enum OpCode {
-	RETURN,
+	// Constants
+	NIL,
+	TRUE,
+	FALSE,
+	CONSTANT,
+	CLOSURE,
+
+	// Arithmetic
+	NOT,
+	NEGATE,
+	ADD,
+	SUBTRACT,
+	MULTIPLY,
+	DIVIDE,
+
+	// Compators
+	EQUAL,
+	GREATER,
+	LESS,
+
+	// Jumps
 	JUMP_IF_FALSE,
 	JUMP,
 	LOOP,
-	CALL,
-	CLOSURE,
-	CONSTANT,
-	POP,
+
+	// Getters & Setters
 	DEFINE_GLOBAL,
 	GET_GLOBAL,
 	SET_GLOBAL,
@@ -14,19 +32,9 @@ export const enum OpCode {
 	SET_LOCAL,
 	GET_UPVALUE,
 	SET_UPVALUE,
-	NIL,
-	TRUE,
-	FALSE,
 
-	NEGATE,
-	NOT,
-
-	ADD,
-	SUBTRACT,
-	MULTIPLY,
-	DIVIDE,
-
-	EQUAL,
-	GREATER,
-	LESS,
+	// Others
+	RETURN,
+	CALL,
+	POP,
 }

@@ -1,16 +1,6 @@
-import { Debug } from "../common/debug";
+import { Debug, InstructionTable } from "../common/debug";
 import { OpCode } from "../common/opcode";
-import {
-	RueBoolean,
-	RueClosure,
-	RueFunction,
-	RueNative,
-	RueNumber,
-	RueString,
-	RueUpvalue,
-	RueValue,
-	ValuesEqual,
-} from "../common/value";
+import { RueBoolean, RueClosure, RueNumber, RueString, RueUpvalue, RueValue, ValuesEqual } from "../common/value";
 import { Compile } from "../frontend/compiler";
 
 export class CallFrame {
@@ -27,6 +17,7 @@ export class VM {
 	public frames: CallFrame[] = [];
 	public frameCount = 0;
 	public openUpvalues?: RueUpvalue;
+	public instructionTimes = new Map<OpCode, [number, number]>();
 
 	getFrame() {
 		return this.frames[this.frameCount - 1];
@@ -84,17 +75,17 @@ export class VM {
 	}
 
 	push(v: RueValue) {
-		if (Debug.DEBUG_STACK) console.log(this.getFrame().slots);
+		if (Debug.Config.DEBUG_STACK) console.log(this.getFrame().slots);
 		return this.getFrame().slots.push(v);
 	}
 
 	pop() {
-		if (Debug.DEBUG_STACK) console.log(this.getFrame().slots);
+		if (Debug.Config.DEBUG_STACK) console.log(this.getFrame().slots);
 		return this.getFrame().slots.pop();
 	}
 
 	popCount(c: number) {
-		if (Debug.DEBUG_STACK) console.log(this.getFrame().slots);
+		if (Debug.Config.DEBUG_STACK) console.log(this.getFrame().slots);
 		const values = [];
 		for (let i = 0; i < c; i++) {
 			values.push(this.pop());
@@ -176,10 +167,11 @@ export class VM {
 		while (true) {
 			const instruction = this.readByte();
 
-			if (Debug.DEBUG_TRACE_EXECUTION) {
+			if (Debug.Config.DEBUG_TRACE_EXECUTION) {
 				console.log(Debug.DisassembleInstruction(frame.getFn().chunk, frame.instruction)[1]);
 			}
 
+			const start = performance.now();
 			switch (instruction) {
 				case OpCode.RETURN: {
 					const result = this.pop();
@@ -355,15 +347,20 @@ export class VM {
 					return [InterpretResult.RUNTIME_ERROR];
 				}
 			}
+
+			if (Debug.Config.DEBUG_EXECUTION_TIME) {
+				if (!this.instructionTimes.has(instruction)) this.instructionTimes.set(instruction, [0, 0]);
+				const [totalTime, count] = this.instructionTimes.get(instruction);
+				this.instructionTimes.set(instruction, [totalTime + (performance.now() - start), count + 1]);
+			}
 		}
 	}
 }
 
 export namespace VirtualMachine {
-	export function Interpret(source: string, natives?: Map<string, RueNative>): [InterpretResult, RueValue?] {
+	export function Interpret(source: string, natives?: Map<string, RueValue>): [InterpretResult, RueValue?] {
 		const [success, fn] = Compile(source);
 		if (success === false) return [InterpretResult.COMPILE_ERROR];
-
 		const vm = new VM();
 
 		if (natives) {
@@ -377,7 +374,15 @@ export namespace VirtualMachine {
 
 		vm.push(fn);
 
-		return vm.run();
+		const rest = vm.run();
+		if (Debug.Config.DEBUG_EXECUTION_TIME) {
+			console.log("AVERAGE INSTRUCTION TIME:");
+			vm.instructionTimes.forEach((time, op) => {
+				console.log(`[ ${time[1]} ] ` + InstructionTable[op][0] + ": " + time[0] / time[1] + "ms");
+			});
+		}
+
+		return rest;
 	}
 }
 

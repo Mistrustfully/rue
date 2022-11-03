@@ -3,6 +3,38 @@ import { Chunk } from "./chunk";
 import { OpCode } from "./opcode";
 import { RueClosure, RueValue } from "./value";
 
+export const InstructionTable: {
+	[index in OpCode]: [string, (name: string, chunk: Chunk, offset: number) => [number, string]];
+} = {
+	[OpCode.NIL]: ["NIL", simpleInstruction],
+	[OpCode.TRUE]: ["TRUE", simpleInstruction],
+	[OpCode.FALSE]: ["FALSE", simpleInstruction],
+	[OpCode.CONSTANT]: ["CONSTANT", constantInstruction],
+	[OpCode.CLOSURE]: ["CLOSURE", closureInstruction],
+	[OpCode.NOT]: ["NOT", simpleInstruction],
+	[OpCode.NEGATE]: ["NEGATE", simpleInstruction],
+	[OpCode.ADD]: ["ADD", simpleInstruction],
+	[OpCode.SUBTRACT]: ["SUBTRACT", simpleInstruction],
+	[OpCode.MULTIPLY]: ["MULTIPLY", simpleInstruction],
+	[OpCode.DIVIDE]: ["DIVIDE", simpleInstruction],
+	[OpCode.EQUAL]: ["EQUAL", simpleInstruction],
+	[OpCode.GREATER]: ["GREATER", simpleInstruction],
+	[OpCode.LESS]: ["LESS", simpleInstruction],
+	[OpCode.JUMP_IF_FALSE]: ["JUMP_IF_FALSE", jumpInstruction],
+	[OpCode.JUMP]: ["JUMP", jumpInstruction],
+	[OpCode.LOOP]: ["LOOP", jumpInstruction],
+	[OpCode.DEFINE_GLOBAL]: ["DEFINE_GLOBAL", constantInstruction],
+	[OpCode.GET_GLOBAL]: ["GET_GLOBAL", constantInstruction],
+	[OpCode.SET_GLOBAL]: ["SET_GLOBAL", constantInstruction],
+	[OpCode.GET_LOCAL]: ["GET_LOCAL", byteInstruction],
+	[OpCode.SET_LOCAL]: ["SET_LOCAL", byteInstruction],
+	[OpCode.GET_UPVALUE]: ["GET_UPVALUE", byteInstruction],
+	[OpCode.SET_UPVALUE]: ["SET_UPVALUE", byteInstruction],
+	[OpCode.RETURN]: ["RETURN", simpleInstruction],
+	[OpCode.CALL]: ["CALL", byteInstruction],
+	[OpCode.POP]: ["POP", simpleInstruction],
+};
+
 function printValue(val: RueValue) {
 	if (!val) {
 		console.log("BRUH");
@@ -20,7 +52,7 @@ function printValue(val: RueValue) {
 	return text;
 }
 
-function simpleInstruction(name: string, offset: number): [number, string] {
+function simpleInstruction(name: string, _chunk: Chunk, offset: number): [number, string] {
 	return [offset + 1, name];
 }
 
@@ -57,71 +89,16 @@ function closureInstruction(name: string, chunk: Chunk, offset: number): [number
 }
 
 export namespace Debug {
-	/* eslint-disable */
-	export let DEBUG_TRACE_EXECUTION = false;
-	export let DEBUG_STACK = false;
+	export const Config = {
+		DEBUG_TRACE_EXECUTION: true,
+		DEBUG_EXECUTION_TIME: true,
+		DEBUG_STACK: false,
+	};
 
 	export function DisassembleInstruction(chunk: Chunk, offset: number): [number, string] {
 		const instruction = chunk.code[offset];
-
-		switch (instruction) {
-			case OpCode.RETURN:
-				return simpleInstruction("OP_RETURN", offset);
-			case OpCode.CONSTANT:
-				return constantInstruction("OP_CONSTANT", chunk, offset);
-			case OpCode.NEGATE:
-				return simpleInstruction("OP_NEGATE", offset);
-			case OpCode.ADD:
-				return simpleInstruction("OP_ADD", offset);
-			case OpCode.SUBTRACT:
-				return simpleInstruction("OP_SUBTRACT", offset);
-			case OpCode.MULTIPLY:
-				return simpleInstruction("OP_MULTIPLY", offset);
-			case OpCode.DIVIDE:
-				return simpleInstruction("OP_DIVIDE", offset);
-			case OpCode.TRUE:
-				return simpleInstruction("OP_TRUE", offset);
-			case OpCode.FALSE:
-				return simpleInstruction("OP_FALSE", offset);
-			case OpCode.NIL:
-				return simpleInstruction("OP_NIL", offset);
-			case OpCode.NOT:
-				return simpleInstruction("OP_NOT", offset);
-			case OpCode.GREATER:
-				return simpleInstruction("OP_GREATER", offset);
-			case OpCode.LESS:
-				return simpleInstruction("OP_LESS", offset);
-			case OpCode.EQUAL:
-				return simpleInstruction("OP_EQUAL", offset);
-			case OpCode.POP:
-				return simpleInstruction("OP_POP", offset);
-			case OpCode.DEFINE_GLOBAL:
-				return constantInstruction("OP_DEFINE_GLOBAL", chunk, offset);
-			case OpCode.GET_GLOBAL:
-				return constantInstruction("OP_GET_GLOBAL", chunk, offset);
-			case OpCode.SET_GLOBAL:
-				return constantInstruction("OP_SET_GLOBAL", chunk, offset);
-			case OpCode.GET_LOCAL:
-				return byteInstruction("OP_GET_LOCAL", chunk, offset);
-			case OpCode.SET_LOCAL:
-				return byteInstruction("OP_SET_LOCAL", chunk, offset);
-			case OpCode.JUMP_IF_FALSE:
-				return jumpInstruction("OP_JUMP_IF_FALSE", chunk, offset);
-			case OpCode.JUMP:
-				return jumpInstruction("OP_JUMP", chunk, offset);
-			case OpCode.LOOP:
-				return jumpInstruction("OP_LOOP", chunk, offset, -1);
-			case OpCode.CALL:
-				return byteInstruction("OP_CALL", chunk, offset);
-			case OpCode.CLOSURE:
-				return closureInstruction("OP_CLOSURE", chunk, offset);
-			case OpCode.GET_UPVALUE:
-				return byteInstruction("OP_GET_UPVALUE", chunk, offset);
-			case OpCode.SET_UPVALUE:
-				return byteInstruction("OP_SET_UPVALUE", chunk, offset);
-			default:
-				return [offset + 1, "UNKNOWN_OP"];
-		}
+		const name = InstructionTable[instruction][0];
+		return InstructionTable[instruction][1](name, chunk, offset);
 	}
 
 	export function DisassembleChunk(chunk: Chunk, name: string) {

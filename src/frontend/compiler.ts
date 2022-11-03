@@ -503,7 +503,7 @@ export class Compiler {
 	}
 
 	endCompiler() {
-		if (Debug.DEBUG_TRACE_EXECUTION && !this.parser.hadError) {
+		if (Debug.Config.DEBUG_TRACE_EXECUTION && !this.parser.hadError) {
 			Debug.DisassembleChunk(this.currentChunk(), this.function.value.name);
 		}
 
