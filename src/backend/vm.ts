@@ -13,29 +13,65 @@ export class CallFrame {
 }
 
 export class VM {
-	public globals = new Map<string, RueValue>();
-	public frames: CallFrame[] = [];
-	public frameCount = 0;
-	public openUpvalues?: RueUpvalue;
-	public instructionTimes = new Map<OpCode, [number, number]>();
+	public interpret(source: string, natives?: Map<string, RueValue>): [InterpretResult, RueValue?] {
+		// Reset VM state
+		this.frames = [];
+		this.frameCount = 0;
 
-	getFrame() {
+		const [success, fn] = Compile(source);
+		if (success === false) return [InterpretResult.COMPILE_ERROR];
+
+		if (natives) {
+			natives.forEach((native, name) => {
+				this.globals.set(name, native);
+			});
+		}
+
+		const callFrame = new CallFrame({ type: "closure", value: { fn, upvalues: [] } });
+		this.frames[this.frameCount++] = callFrame;
+
+		this.push(fn);
+
+		const rest = this.run();
+		if (Debug.Config.DEBUG_EXECUTION_TIME) {
+			console.log("AVERAGE INSTRUCTION TIME:");
+			this.instructionTimes.forEach((time, op) => {
+				console.log(`[ ${time[1]} ] ` + InstructionTable[op][0] + ": " + time[0] / time[1] + "ms");
+			});
+		}
+
+		return rest;
+	}
+
+	public reset() {
+		this.globals.clear();
+		this.openUpvalues = undefined;
+		this.instructionTimes.clear();
+	}
+
+	private globals = new Map<string, RueValue>();
+	private frames: CallFrame[] = [];
+	private frameCount = 0;
+	private openUpvalues?: RueUpvalue;
+	private instructionTimes = new Map<OpCode, [number, number]>();
+
+	private getFrame() {
 		return this.frames[this.frameCount - 1];
 	}
 
-	readByte() {
+	private readByte() {
 		return this.getFrame().getFn().chunk.code[++this.getFrame().instruction];
 	}
 
-	readConstant() {
+	private readConstant() {
 		return this.getFrame().getFn().chunk.constants[this.readByte()];
 	}
 
-	peek(distance: number) {
+	private peek(distance: number) {
 		return this.getFrame().slots[this.getFrame().slots.length - distance - 1];
 	}
 
-	binaryOp(op: OpCode) {
+	private binaryOp(op: OpCode) {
 		const v2 = this.pop() as RueNumber;
 		const v1 = this.pop() as RueNumber;
 
@@ -53,14 +89,14 @@ export class VM {
 		return 0;
 	}
 
-	concat() {
+	private concat() {
 		const v2 = this.pop() as RueString;
 		const v1 = this.pop() as RueString;
 
 		return v1.value + v2.value;
 	}
 
-	compare(op: OpCode) {
+	private compare(op: OpCode) {
 		const v2 = this.pop() as RueNumber;
 		const v1 = this.pop() as RueNumber;
 
@@ -74,17 +110,17 @@ export class VM {
 		return false;
 	}
 
-	push(v: RueValue) {
+	private push(v: RueValue) {
 		if (Debug.Config.DEBUG_STACK) console.log(this.getFrame().slots);
 		return this.getFrame().slots.push(v);
 	}
 
-	pop() {
+	private pop() {
 		if (Debug.Config.DEBUG_STACK) console.log(this.getFrame().slots);
 		return this.getFrame().slots.pop();
 	}
 
-	popCount(c: number) {
+	private popCount(c: number) {
 		if (Debug.Config.DEBUG_STACK) console.log(this.getFrame().slots);
 		const values = [];
 		for (let i = 0; i < c; i++) {
@@ -94,7 +130,7 @@ export class VM {
 		return values.reverse();
 	}
 
-	call(fn: RueClosure, argCount: number) {
+	private call(fn: RueClosure, argCount: number) {
 		if (argCount != fn.value.fn.value.arity) {
 			this.runtimeError(`Expected ${fn.value.fn.value.arity} arguments, but got ${argCount}.`);
 			return false;
@@ -107,7 +143,7 @@ export class VM {
 		return true;
 	}
 
-	callValue(callee: RueValue, argCount: number) {
+	private callValue(callee: RueValue, argCount: number) {
 		if (callee.type === "closure") {
 			return this.call(callee, argCount);
 		} else if (callee.type == "nativeFunction") {
@@ -125,7 +161,7 @@ export class VM {
 		return false;
 	}
 
-	captureUpvalue(local: number): RueUpvalue {
+	private captureUpvalue(local: number): RueUpvalue {
 		let prevUpvalue: RueUpvalue;
 		let upvalue = this.openUpvalues;
 
@@ -152,7 +188,7 @@ export class VM {
 		return newUpvalue;
 	}
 
-	runtimeError(message: string) {
+	private runtimeError(message: string) {
 		console.log(message);
 		for (let i = this.frameCount - 1; i >= 0; i--) {
 			const frame = this.frames[i];
@@ -160,7 +196,7 @@ export class VM {
 		}
 	}
 
-	run(): [InterpretResult, RueValue?] {
+	private run(): [InterpretResult, RueValue?] {
 		let frame = this.getFrame();
 
 		/* eslint-disable no-constant-condition */
@@ -354,35 +390,6 @@ export class VM {
 				this.instructionTimes.set(instruction, [totalTime + (performance.now() - start), count + 1]);
 			}
 		}
-	}
-}
-
-export namespace VirtualMachine {
-	export function Interpret(source: string, natives?: Map<string, RueValue>): [InterpretResult, RueValue?] {
-		const [success, fn] = Compile(source);
-		if (success === false) return [InterpretResult.COMPILE_ERROR];
-		const vm = new VM();
-
-		if (natives) {
-			natives.forEach((native, name) => {
-				vm.globals.set(name, native);
-			});
-		}
-
-		const callFrame = new CallFrame({ type: "closure", value: { fn, upvalues: [] } });
-		vm.frames[vm.frameCount++] = callFrame;
-
-		vm.push(fn);
-
-		const rest = vm.run();
-		if (Debug.Config.DEBUG_EXECUTION_TIME) {
-			console.log("AVERAGE INSTRUCTION TIME:");
-			vm.instructionTimes.forEach((time, op) => {
-				console.log(`[ ${time[1]} ] ` + InstructionTable[op][0] + ": " + time[0] / time[1] + "ms");
-			});
-		}
-
-		return rest;
 	}
 }
 

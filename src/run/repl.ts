@@ -1,12 +1,15 @@
 import readline = require("readline");
 import Rue = require("..");
+import std from "./std";
 
 const rl = readline.createInterface({
 	input: process.stdin,
 	output: process.stdout,
-	prompt: "> ",
 });
 
+const vm = new Rue.VM();
+
 rl.on("line", (line) => {
-	console.log(Rue.VM.Interpret(line) + " ");
+	console.log(line);
+	console.log(vm.interpret(line + " ", std));
 });

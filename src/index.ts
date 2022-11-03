@@ -1,9 +1,9 @@
 import { Debug as DebugCommon } from "./common/debug";
-import { VirtualMachine } from "./backend/vm";
+import { VM as VM_ } from "./backend/vm";
 
 namespace Rue {
 	export const Debug = DebugCommon;
-	export const VM = VirtualMachine;
+	export const VM = VM_;
 }
 
 export = Rue;

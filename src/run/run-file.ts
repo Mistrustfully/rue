@@ -8,7 +8,8 @@ const file = process.argv[2];
 fs.readFile(path.resolve(file), (err, data) => {
 	const start = performance.now();
 	if (err) throw err;
-	const [, returnValue] = Rue.VM.Interpret(data.toString(), std);
+	const vm = new Rue.VM();
+	const [, returnValue] = vm.interpret(data.toString(), std);
 	console.log(returnValue);
 	const end = performance.now();
 
