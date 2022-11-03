@@ -1,5 +1,4 @@
 import { Token, TokenType } from "../common/token";
-import { char_at, string_length, substring } from "../polyfills";
 import { isAlpha, isDigit } from "../util";
 
 export class Scanner {
@@ -8,11 +7,11 @@ export class Scanner {
 	public current = 0;
 
 	isAtEnd() {
-		return string_length(this.source) - 1 === this.current;
+		return this.source.length - 1 === this.current;
 	}
 
-	makeToken(type_: TokenType) {
-		return new Token(type_, substring(this.source, this.start, this.current), this.line);
+	makeToken(type: TokenType) {
+		return new Token(type, this.source.substring(this.start, this.current), this.line);
 	}
 
 	errorToken(message: string) {
@@ -24,7 +23,7 @@ export class Scanner {
 
 	advance() {
 		this.current++;
-		return substring(this.source, this.current - 1, this.current);
+		return this.source.substring(this.current - 1, this.current);
 	}
 
 	match(expected: string) {
@@ -36,11 +35,11 @@ export class Scanner {
 	}
 
 	peek() {
-		return substring(this.source, this.current, this.current + 1);
+		return this.source.substring(this.current, this.current + 1);
 	}
 
 	peekNext() {
-		return substring(this.source, this.current + 1, this.current + 2);
+		return this.source.substring(this.current + 1, this.current + 2);
 	}
 
 	skipWhitespace() {
@@ -60,8 +59,9 @@ export class Scanner {
 					this.advance();
 					break;
 				case "/":
-					if (this.peekNext() === "/") {
+					if (this.peekNext() == "/") {
 						// A comment goes until the end of the line.
+						console.log("comment!");
 						while (this.peek() !== "\n" && !this.isAtEnd()) this.advance();
 					} else {
 						return;
@@ -74,14 +74,14 @@ export class Scanner {
 	}
 
 	identifierType(lexeme: string) {
-		function checkKeyword(start: number, rest: string, type_: TokenType) {
-			if (substring(lexeme, start, string_length(lexeme)) === rest) {
-				return type_;
+		function checkKeyword(start: number, rest: string, type: TokenType) {
+			if (lexeme.substring(start, lexeme.length) === rest) {
+				return type;
 			}
 			return TokenType.IDENTIFIER;
 		}
 
-		switch (char_at(lexeme, 0)) {
+		switch (lexeme.at(0)) {
 			case "a":
 				return checkKeyword(1, "nd", TokenType.AND);
 			case "c":
@@ -89,7 +89,7 @@ export class Scanner {
 			case "e":
 				return checkKeyword(1, "lse", TokenType.ELSE);
 			case "f":
-				switch (char_at(lexeme, 1)) {
+				switch (lexeme.at(1)) {
 					case "a":
 						return checkKeyword(2, "lse", TokenType.FALSE);
 					case "o":
@@ -107,7 +107,7 @@ export class Scanner {
 			case "r":
 				return checkKeyword(1, "eturn", TokenType.RETURN);
 			case "t":
-				switch (char_at(lexeme, 1)) {
+				switch (lexeme.at(1)) {
 					case "h":
 						return checkKeyword(2, "is", TokenType.THIS);
 					case "r":
@@ -151,7 +151,7 @@ export class Scanner {
 
 	identifier() {
 		while (isAlpha(this.peek()) || isDigit(this.peek())) this.advance();
-		return this.makeToken(this.identifierType(substring(this.source, this.start, this.current)));
+		return this.makeToken(this.identifierType(this.source.substring(this.start, this.current)));
 	}
 
 	scanToken() {

@@ -1,10 +1,14 @@
-import { array_length, printf } from "../polyfills";
 import { padNumber } from "../util";
 import { Chunk } from "./chunk";
 import { OpCode } from "./opcode";
 import { RueClosure, RueValue } from "./value";
 
 function printValue(val: RueValue) {
+	if (!val) {
+		console.log("BRUH");
+		return "";
+	}
+
 	let text = `[ ${val.type}`;
 
 	if (val.type !== "nil") {
@@ -121,10 +125,10 @@ export namespace Debug {
 	}
 
 	export function DisassembleChunk(chunk: Chunk, name: string) {
-		printf(`=== ${name} ===`);
-		for (let offset = 0; offset < array_length(chunk.code); offset) {
+		console.log(`=== ${name} ===`);
+		for (let offset = 0; offset < chunk.code.length; offset) {
 			const [newOffset, log] = DisassembleInstruction(chunk, offset);
-			printf(
+			console.log(
 				`${padNumber(offset, 4)} ${
 					chunk.lines[offset] === chunk.lines[offset - 1] ? "|" : chunk.lines[offset]
 				}  ${log}`,

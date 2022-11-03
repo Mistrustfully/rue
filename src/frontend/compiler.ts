@@ -3,7 +3,6 @@ import { Debug } from "../common/debug";
 import { OpCode } from "../common/opcode";
 import { Token, TokenType } from "../common/token";
 import { RueFunction, RueUpvalue, RueValue } from "../common/value";
-import { array_length, printf } from "../polyfills";
 import { Parser } from "./parser";
 import { DefaultRule, ParseFn, Precendence, rules } from "./precendence";
 import { Scanner } from "./scanner";
@@ -34,7 +33,7 @@ export function Compile(source: string): [boolean, RueFunction] {
 	const fn = compiler.function;
 
 	// Insert return statements if missing.
-	if (fn.value.chunk.code[array_length(fn.value.chunk.code) - 2] !== OpCode.RETURN) {
+	if (fn.value.chunk.code[fn.value.chunk.code.length - 2] !== OpCode.RETURN) {
 		fn.value.chunk.write(OpCode.NIL, parser.current.line);
 		fn.value.chunk.write(OpCode.RETURN, parser.current.line);
 	}
@@ -65,19 +64,19 @@ export class Compiler {
 			text += token.lexeme;
 		}
 
-		printf(`${text} ${message}`);
+		console.log(`${text} ${message}`);
 		this.parser.hadError = true;
 		this.parser.panicMode = true;
 	}
 
-	match(type_: TokenType) {
-		if (this.parser.current.type !== type_) return false;
+	match(type: TokenType) {
+		if (this.parser.current.type !== type) return false;
 		this.advance();
 		return true;
 	}
 
-	consume(type_: TokenType, message: string) {
-		if (this.parser.current.type === type_) {
+	consume(type: TokenType, message: string) {
+		if (this.parser.current.type === type) {
 			this.advance();
 			return;
 		}
@@ -106,25 +105,25 @@ export class Compiler {
 	emitJump(instruction: OpCode) {
 		this.emitByte(instruction);
 		this.emitByte(0);
-		return array_length(this.currentChunk().code) - 1;
+		return this.currentChunk().code.length - 1;
 	}
 
 	patchJump(offset: number) {
-		const jump = array_length(this.currentChunk().code);
+		const jump = this.currentChunk().code.length;
 		this.currentChunk().code[offset] = jump - offset - 1;
 	}
 
 	emitLoop(loopStart: number) {
 		this.emitByte(OpCode.LOOP);
 
-		const offset = array_length(this.currentChunk().code) - loopStart + 1;
+		const offset = this.currentChunk().code.length - loopStart + 1;
 		this.emitByte(offset);
 	}
 
 	/// Parse Functions
 
-	getRule(type_: TokenType) {
-		return rules[type_] || DefaultRule;
+	getRule(type: TokenType) {
+		return rules[type] || DefaultRule;
 	}
 
 	parsePrecedence(precedence: Precendence) {
@@ -191,13 +190,13 @@ export class Compiler {
 		const name = this.parser.previous;
 
 		for (let i = this.localCount - 1; i >= 0; i--) {
-			const local_ = this.locals[i];
+			const local = this.locals[i];
 
-			if (local_.depth !== -1 && local_.depth < this.scopeDepth) {
+			if (local.depth !== -1 && local.depth < this.scopeDepth) {
 				break;
 			}
 
-			if (local_.name === name.lexeme) {
+			if (local.name === name.lexeme) {
 				this.errorAt(this.parser.current, "Already a variable with this name in this scope!");
 			}
 		}
@@ -243,7 +242,7 @@ export class Compiler {
 	}
 
 	whileStatement() {
-		const loopStart = array_length(this.currentChunk().code);
+		const loopStart = this.currentChunk().code.length;
 		this.expression();
 
 		const exitJump = this.emitJump(OpCode.JUMP_IF_FALSE);
@@ -273,7 +272,7 @@ export class Compiler {
 			this.consume(TokenType.COMMA, "Expect ',' after loop intializer");
 		}
 
-		let loopStart = array_length(this.currentChunk().code);
+		let loopStart = this.currentChunk().code.length;
 
 		// Match for condition clause
 		let exitJump = -1;
@@ -288,7 +287,7 @@ export class Compiler {
 		// Match for increment
 		if (!this.match(TokenType.COMMA)) {
 			const bodyJump = this.emitJump(OpCode.JUMP);
-			const incrementStart = array_length(this.currentChunk().code);
+			const incrementStart = this.currentChunk().code.length;
 
 			this.expression();
 
@@ -345,12 +344,12 @@ export class Compiler {
 
 		let arg = this.resolveLocal(name);
 
-		if (arg !== -1) {
+		if (arg != -1) {
 			getOp = OpCode.GET_LOCAL;
 			setOp = OpCode.SET_LOCAL;
 		} else {
 			arg = this.resolveUpvalue(name);
-			if (arg !== -1) {
+			if (arg != -1) {
 				getOp = OpCode.GET_UPVALUE;
 				setOp = OpCode.SET_UPVALUE;
 			} else {
@@ -385,13 +384,13 @@ export class Compiler {
 		return argCount;
 	}
 
-	makeFunction(type_: FunctionType) {
+	makeFunction(type: FunctionType) {
 		const compiler = new Compiler(
 			{
 				type: "function",
 				value: { chunk: new Chunk(), arity: 0, upvalueCount: 0, name: this.parser.previous.lexeme },
 			},
-			type_,
+			type,
 			this.parser,
 		);
 
@@ -446,17 +445,17 @@ export class Compiler {
 		};
 	}
 
-	addUpvalue(index: number, local_: boolean) {
+	addUpvalue(index: number, local: boolean) {
 		const upvalueCount = this.function.value.upvalueCount;
 
 		for (let i = 0; i < upvalueCount; i++) {
 			const upvalue = this.upvalues[i];
-			if (upvalue.value.index === index && upvalue.value.isLocal === local_) {
+			if (upvalue.value.index === index && upvalue.value.isLocal === local) {
 				return i;
 			}
 		}
 
-		this.upvalues[upvalueCount] = { type: "upvalue", value: { isLocal: local_, index, value: { type: "nil" } } };
+		this.upvalues[upvalueCount] = { type: "upvalue", value: { isLocal: local, index, value: { type: "nil" } } };
 		return this.function.value.upvalueCount++;
 	}
 
@@ -470,9 +469,9 @@ export class Compiler {
 
 	resolveLocal(name: Token) {
 		for (let i = this.localCount - 1; i >= 0; i--) {
-			const local_ = this.locals[i];
-			if (local_.name === name.lexeme) {
-				if (local_.depth === -1) {
+			const local = this.locals[i];
+			if (local.name === name.lexeme) {
+				if (local.depth == -1) {
 					this.errorAt(this.parser.current, "Can't read local variable in its own initializer.");
 				}
 				return i;
@@ -482,17 +481,17 @@ export class Compiler {
 		return -1;
 	}
 
-	resolveUpvalue(name: Token): number {
+	resolveUpvalue(name: Token) {
 		if (this.enclosing === undefined) return -1;
 
-		const local_ = this.enclosing.resolveLocal(name);
-		if (local_ !== -1) {
-			this.enclosing.locals[local_].isCaptured = true;
-			return this.addUpvalue(local_, true);
+		const local = this.enclosing.resolveLocal(name);
+		if (local != -1) {
+			this.enclosing.locals[local].isCaptured = true;
+			return this.addUpvalue(local, true);
 		}
 
 		const upvalue = this.enclosing.resolveUpvalue(name);
-		if (upvalue !== -1) {
+		if (upvalue != -1) {
 			return this.addUpvalue(upvalue, false);
 		}
 
@@ -511,7 +510,7 @@ export class Compiler {
 		return this.function;
 	}
 
-	constructor(fn: RueFunction, public type_: FunctionType, public parser: Parser) {
+	constructor(fn: RueFunction, public type: FunctionType, public parser: Parser) {
 		this.function = fn;
 		this.locals[this.localCount++] = { depth: 0, name: "", isCaptured: false };
 	}

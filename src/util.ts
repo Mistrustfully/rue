@@ -1,9 +1,7 @@
-import { string_length, tostring_, tonumber_, char_code_at } from "./polyfills";
-
 export function padNumber(number: number, size: number) {
-	let numberString = tostring_(number);
+	let numberString = number.toString();
 
-	while (string_length(numberString) < size) {
+	while (numberString.length < size) {
 		numberString = "0" + numberString;
 	}
 
@@ -11,17 +9,17 @@ export function padNumber(number: number, size: number) {
 }
 
 export function isDigit(c: string) {
-	return char_code_at(c, 0) >= char_code_at("0", 0) && char_code_at(c, 0) <= char_code_at("9", 0);
+	return c.charCodeAt(0) >= "0".charCodeAt(0) && c.charCodeAt(0) <= "9".charCodeAt(0);
 }
 
 export function isAlpha(c: string) {
 	return (
-		(char_code_at(c, 0) >= char_code_at("a", 0) && char_code_at(c, 0) <= char_code_at("z", 0)) ||
-		(char_code_at(c, 0) >= char_code_at("A", 0) && char_code_at(c, 0) <= char_code_at("Z", 0)) ||
-		char_code_at(c, 0) === char_code_at("_", 0)
+		(c.charCodeAt(0) >= "a".charCodeAt(0) && c.charCodeAt(0) <= "z".charCodeAt(0)) ||
+		(c.charCodeAt(0) >= "A".charCodeAt(0) && c.charCodeAt(0) <= "Z".charCodeAt(0)) ||
+		c.charCodeAt(0) == "_".charCodeAt(0)
 	);
 }
 
 export function stringToDigit(c: string) {
-	return tonumber_(c);
+	return Number(c);
 }
