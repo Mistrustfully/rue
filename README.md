@@ -13,6 +13,8 @@ assert(1 == 1)
 
 * Functions
 ```rs
+use std.assert
+
 fn fib() {
 	if n <= 2 {
 		return 1
@@ -26,6 +28,8 @@ assert(fib(9) == 34)
 
 * For Loops
 ```rs
+use std.assert
+
 var add = 0;
 
 for var i = 0, i <= 3, i = i + 1 {
@@ -37,6 +41,8 @@ assert(add == 6)
 
 * Objects
 ```rs
+use std.assert
+
 var obj = {
     stuff: "Hello",
     stuff2: "World"
