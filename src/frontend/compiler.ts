@@ -396,6 +396,15 @@ export class Compiler {
 		this.expressionStatement();
 	}
 
+	returnStatement() {
+		if (this.parser.current.type === TokenType.EOF || this.parser.current.type === TokenType.RIGHT_BRACE) {
+			this.emitByte(OpCode.NIL);
+		} else {
+			this.expression();
+		}
+		this.emitByte(OpCode.RETURN);
+	}
+
 	/// Utility Functions
 
 	startScope() {
@@ -493,15 +502,6 @@ export class Compiler {
 
 	expression() {
 		this.parsePrecedence(Precendence.ASSIGNMENT);
-	}
-
-	returnStatement() {
-		if (this.parser.current.type === TokenType.EOF || this.parser.current.type === TokenType.RIGHT_BRACE) {
-			this.emitByte(OpCode.NIL);
-		} else {
-			this.expression();
-		}
-		this.emitByte(OpCode.RETURN);
 	}
 
 	markInitialized() {

@@ -2,7 +2,7 @@ import fs = require("fs");
 import path = require("path");
 
 import Rue = require("..");
-import std from "./std";
+import std from "../std";
 
 const file = process.argv[2];
 fs.readFile(path.resolve(file), (err, data) => {

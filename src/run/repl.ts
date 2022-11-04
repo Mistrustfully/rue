@@ -1,6 +1,6 @@
 import readline = require("readline");
 import Rue = require("..");
-import std from "./std";
+import std from "../std";
 
 const rl = readline.createInterface({
 	input: process.stdin,

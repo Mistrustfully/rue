@@ -2,7 +2,7 @@ import fs = require("fs");
 
 import Rue = require("..");
 import { InterpretResult } from "../backend/vm";
-import std from "./std";
+import std from "../std";
 
 Rue.Debug.Config.DEBUG_TRACE_EXECUTION = false;
 Rue.Debug.Config.DEBUG_STACK = false;
@@ -10,7 +10,6 @@ Rue.Debug.Config.DEBUG_EXECUTION_TIME = false;
 
 const start = performance.now();
 let failed = false;
-
 const vm = new Rue.VM();
 vm.addLibrary("std", std);
 

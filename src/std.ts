@@ -1,4 +1,4 @@
-import { RueValue } from "../common/value";
+import { RueValue } from "./common/value";
 
 const std: { [index: string]: RueValue } = {
 	print: {

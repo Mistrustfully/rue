@@ -53,3 +53,41 @@ assert((obj.stuff + obj.stuff2) == "HelloWorld")
 
 See the [tests](test) for examples on how to program in Rue!
 
+## Integration
+
+* Running Code
+```ts
+import Rue from "rue"
+
+const vm = new Rue.VM()
+vm.interpet("return 1 + 1")
+```
+
+* Using the standard library
+```ts
+import Rue from "rue"
+
+const vm = new Rue.VM()
+vm.addLibrary("std", Rue.std)
+vm.interpet(`print("Hello World!")`)
+```
+
+* Creating your own library
+```ts
+import Rue from "rue"
+
+const lib = {
+    customFn: {
+        type: "nativeFunction"
+        value: (param1, param2) => {
+            if (param1.type !== "number" || param2.type !== "number") return { type: "error", value: "Cannot add non numbers!" }
+            return { type: "number", value: param1.value + param2.value}
+        }
+    }
+}
+
+const vm = new Rue.VM()
+vm.addLibrary("std", Rue.std)
+vm.addLibrary("mylib", lib)
+vm.interpet(`print(customFn(1 + 1))`)
+```
