@@ -378,6 +378,33 @@ export class VM {
 					this.getFrame().closure.value.upvalues[slot].value.value = this.peek(0);
 					break;
 				}
+				case OpCode.GET_FIELD: {
+					const obj = this.peek(0);
+					if (obj.type !== "object") {
+						this.runtimeError("Attempt to get a field on non-object!");
+						return [InterpretResult.RUNTIME_ERROR];
+					}
+
+					const name = this.readConstant() as RueString;
+					this.pop();
+					this.push(obj.value[name.value] || { type: "nil" });
+					break;
+				}
+				case OpCode.SET_FIELD: {
+					const obj = this.peek(1);
+					if (obj.type !== "object") {
+						this.runtimeError("Attempt to set a field on non-object!");
+						return [InterpretResult.RUNTIME_ERROR];
+					}
+
+					const name = this.readConstant() as RueString;
+					obj.value[name.value] = this.peek(0);
+
+					const v = this.pop();
+					this.pop();
+					this.push(v);
+					break;
+				}
 				default: {
 					this.runtimeError(`Unknown instruction: ${instruction} @ ${this.getFrame().instruction}`);
 					return [InterpretResult.RUNTIME_ERROR];

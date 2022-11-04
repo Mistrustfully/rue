@@ -11,6 +11,7 @@ export const InstructionTable: {
 	[OpCode.FALSE]: ["FALSE", simpleInstruction],
 	[OpCode.CONSTANT]: ["CONSTANT", constantInstruction],
 	[OpCode.CLOSURE]: ["CLOSURE", closureInstruction],
+	[OpCode.USE]: ["USE", simpleInstruction],
 	[OpCode.NOT]: ["NOT", simpleInstruction],
 	[OpCode.NEGATE]: ["NEGATE", simpleInstruction],
 	[OpCode.ADD]: ["ADD", simpleInstruction],
@@ -30,6 +31,8 @@ export const InstructionTable: {
 	[OpCode.SET_LOCAL]: ["SET_LOCAL", byteInstruction],
 	[OpCode.GET_UPVALUE]: ["GET_UPVALUE", byteInstruction],
 	[OpCode.SET_UPVALUE]: ["SET_UPVALUE", byteInstruction],
+	[OpCode.GET_FIELD]: ["GET_FIELD", constantInstruction],
+	[OpCode.SET_FIELD]: ["SET_FIELD", constantInstruction],
 	[OpCode.RETURN]: ["RETURN", simpleInstruction],
 	[OpCode.CALL]: ["CALL", byteInstruction],
 	[OpCode.POP]: ["POP", simpleInstruction],
@@ -90,7 +93,7 @@ function closureInstruction(name: string, chunk: Chunk, offset: number): [number
 
 export namespace Debug {
 	export const Config = {
-		DEBUG_TRACE_EXECUTION: false,
+		DEBUG_TRACE_EXECUTION: true,
 		DEBUG_EXECUTION_TIME: false,
 		DEBUG_STACK: false,
 	};

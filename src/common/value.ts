@@ -19,6 +19,11 @@ export type RueNil = {
 	type: "nil";
 };
 
+export type RueObject = {
+	type: "object";
+	value: { [index: string]: RueValue };
+};
+
 export type RueFunction = {
 	type: "function";
 	value: { chunk: Chunk; name: string; arity: number; upvalueCount: number };
@@ -44,7 +49,17 @@ export type RueError = {
 	value: string;
 };
 
-export type RueValue = RueString | RueNumber | RueBoolean | RueNil | RueFunction | RueClosure | RueNative | RueError;
+export type RueValue =
+	| RueString
+	| RueNumber
+	| RueBoolean
+	| RueNil
+	| RueObject
+	| RueFunction
+	| RueClosure
+	| RueNative
+	| RueError;
+
 export function ValuesEqual(a: RueValue, b: RueValue) {
 	if (a.type !== b.type) return false;
 	if (a.type === "nil" || b.type === "nil") return true;

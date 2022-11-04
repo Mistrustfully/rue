@@ -1,0 +1,19 @@
+fn newHelloObj() {
+    fn method() {
+        return 15
+    }
+    
+    var helloObj = {
+        foo: "bar",
+        buzz: 5 + 5,
+        method: method
+    }
+
+    return helloObj
+}
+
+var helloObj = newHelloObj()
+
+assert(helloObj.foo == "bar")
+assert(helloObj.buzz == 10)
+assert(helloObj.method() == 15)

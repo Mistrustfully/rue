@@ -28,6 +28,7 @@ export class Parser {
 				case TokenType.FOR:
 				case TokenType.IF:
 				case TokenType.WHILE:
+				case TokenType.USE:
 				case TokenType.RETURN:
 					return;
 			}

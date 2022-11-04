@@ -32,9 +32,12 @@ export const enum OpCode {
 	SET_LOCAL,
 	GET_UPVALUE,
 	SET_UPVALUE,
+	GET_FIELD,
+	SET_FIELD,
 
 	// Others
 	RETURN,
 	CALL,
 	POP,
+	USE,
 }

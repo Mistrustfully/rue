@@ -1,11 +1,7 @@
-import { Chunk } from "../common/chunk";
-import { Debug } from "../common/debug";
 import { OpCode } from "../common/opcode";
-import { Token, TokenType } from "../common/token";
-import { RueValue } from "../common/value";
+import { TokenType } from "../common/token";
 import { stringToDigit } from "../util";
-import { Compile, Compiler, FunctionType } from "./compiler";
-import { Scanner } from "./scanner";
+import { Compiler } from "./compiler";
 
 export type ParseFn = (compiler: Compiler, canAssign: boolean) => void;
 export const DefaultRule = [Precendence.NONE];
@@ -26,6 +22,8 @@ export const enum Precendence {
 
 export const rules: { [index in number]: [Precendence, ParseFn?, ParseFn?] } = {
 	[TokenType.LEFT_PAREN]: [Precendence.CALL, grouping, call],
+	[TokenType.DOT]: [Precendence.CALL, undefined, dot],
+	[TokenType.LEFT_BRACE]: [Precendence.NONE, object, undefined],
 	[TokenType.MINUS]: [Precendence.TERM, unary, binary],
 	[TokenType.PLUS]: [Precendence.TERM, undefined, binary],
 	[TokenType.SLASH]: [Precendence.FACTOR, undefined, binary],
@@ -51,6 +49,10 @@ export const rules: { [index in number]: [Precendence, ParseFn?, ParseFn?] } = {
 	[TokenType.OR]: [Precendence.OR, undefined, or_],
 };
 
+export function object(compiler: Compiler) {
+	compiler.object();
+}
+
 export function grouping(compiler: Compiler) {
 	compiler.expression();
 	compiler.consume(TokenType.RIGHT_PAREN, "Expect ')' after expression");
@@ -59,6 +61,18 @@ export function grouping(compiler: Compiler) {
 export function call(compiler: Compiler) {
 	const argCount = compiler.argumentList();
 	compiler.emitBytes(OpCode.CALL, argCount);
+}
+
+export function dot(compiler: Compiler, canAssign: boolean) {
+	compiler.consume(TokenType.IDENTIFIER, "Expect property name after '.'");
+	const name = compiler.identifierConstant(compiler.parser.previous);
+
+	if (canAssign && compiler.match(TokenType.EQUAL)) {
+		compiler.expression();
+		compiler.emitBytes(OpCode.SET_FIELD, name);
+	} else {
+		compiler.emitBytes(OpCode.GET_FIELD, name);
+	}
 }
 
 export function binary(compiler: Compiler) {

@@ -159,6 +159,26 @@ export class Compiler {
 		return this.identifierConstant(this.parser.previous);
 	}
 
+	object() {
+		const obj = this.makeConstant({ type: "object", value: {} });
+		do {
+			if (this.match(TokenType.IDENTIFIER)) {
+				const name = this.parser.previous;
+
+				this.consume(TokenType.COLON, "expected colon");
+				this.emitBytes(OpCode.CONSTANT, obj);
+				this.expression();
+				this.emitBytes(OpCode.SET_FIELD, this.identifierConstant(name));
+				this.emitByte(OpCode.POP); // Pop the value pushed by SET_FIELD.
+			} else {
+				break;
+			}
+		} while (this.match(TokenType.COMMA));
+		this.consume(TokenType.RIGHT_BRACE, "Expected '}' to close object.");
+
+		this.emitBytes(OpCode.CONSTANT, obj);
+	}
+
 	/// Declarations
 
 	declaration() {
@@ -178,6 +198,8 @@ export class Compiler {
 			this.endScope();
 		} else if (this.match(TokenType.RETURN)) {
 			this.returnStatement();
+		} else if (this.match(TokenType.USE)) {
+			this.useStatement();
 		} else {
 			this.statement();
 		}
@@ -225,6 +247,33 @@ export class Compiler {
 	}
 
 	/// Statements
+
+	useStatement() {
+		this.consume(TokenType.IDENTIFIER, "Expected library name after use statment!");
+		const library = this.parser.previous.lexeme;
+		const importPaths: string[] = [];
+
+		// Recursive function which adds all import paths to importPaths.
+		const parseImport = (path: string) => {
+			if (this.match(TokenType.DOT)) {
+				if (this.match(TokenType.LEFT_PAREN)) {
+					do {
+						this.consume(TokenType.IDENTIFIER, "Expected import name");
+						parseImport(path + "." + this.parser.previous.lexeme);
+					} while (this.match(TokenType.COMMA));
+					this.consume(TokenType.RIGHT_PAREN, "Expected left brace to close right brace");
+					return;
+				} else if (this.match(TokenType.IDENTIFIER)) {
+					return parseImport(path + "." + this.parser.previous.lexeme);
+				}
+			}
+
+			importPaths.push(path);
+		};
+
+		parseImport(library);
+		console.log(importPaths);
+	}
 
 	ifStatement() {
 		this.expression();
