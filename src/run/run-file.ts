@@ -9,7 +9,8 @@ fs.readFile(path.resolve(file), (err, data) => {
 	const start = performance.now();
 	if (err) throw err;
 	const vm = new Rue.VM();
-	const [, returnValue] = vm.interpret(data.toString(), std);
+	vm.addLibrary("std", std);
+	const [, returnValue] = vm.interpret(data.toString());
 	console.log(returnValue);
 	const end = performance.now();
 

@@ -13,7 +13,7 @@ export enum FunctionType {
 	SCRIPT,
 }
 
-export function Compile(source: string): [boolean, RueFunction] {
+export function Compile(source: string, libraries: Map<string, RueValue>): [boolean, RueFunction] {
 	const scanner = new Scanner(source);
 	const parser = new Parser(scanner);
 
@@ -21,6 +21,7 @@ export function Compile(source: string): [boolean, RueFunction] {
 		{ type: "function", value: { arity: 0, upvalueCount: 0, name: "main", chunk: new Chunk() } },
 		FunctionType.SCRIPT,
 		parser,
+		libraries,
 	);
 
 	compiler.advance();
@@ -272,7 +273,28 @@ export class Compiler {
 		};
 
 		parseImport(library);
-		console.log(importPaths);
+
+		// Load those imports as variables:
+		importPaths.forEach((path) => {
+			const split = path.split(".");
+			const name = split[split.length - 1];
+			let value: RueValue;
+
+			split.forEach((index) => {
+				if (!value || value.type === "nil") {
+					value = this.libraries.get(index);
+					return;
+				}
+
+				value = value.value[index];
+				if (!value) {
+					this.errorAt(this.parser.previous, `Couldn't import ${path}`);
+				}
+			});
+
+			this.emitBytes(OpCode.CONSTANT, this.makeConstant(value));
+			this.emitBytes(OpCode.DEFINE_GLOBAL, this.makeConstant({ type: "string", value: name }));
+		});
 	}
 
 	ifStatement() {
@@ -441,6 +463,7 @@ export class Compiler {
 			},
 			type,
 			this.parser,
+			this.libraries,
 		);
 
 		compiler.enclosing = this;
@@ -559,7 +582,12 @@ export class Compiler {
 		return this.function;
 	}
 
-	constructor(fn: RueFunction, public type: FunctionType, public parser: Parser) {
+	constructor(
+		fn: RueFunction,
+		public type: FunctionType,
+		public parser: Parser,
+		private libraries: Map<string, RueValue>,
+	) {
 		this.function = fn;
 		this.locals[this.localCount++] = { depth: 0, name: "", isCaptured: false };
 	}

@@ -1,3 +1,5 @@
+use std.assert
+
 var hello = "hello"
 {
 	var hello = "shadowed"

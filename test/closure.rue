@@ -1,3 +1,5 @@
+use std.assert
+
 fn outer() {
     var upv = "Hello World!"
     fn middle() {

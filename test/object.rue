@@ -1,14 +1,17 @@
+use std.assert
+
 fn newHelloObj() {
     fn method() {
         return 15
     }
     
     var helloObj = {
-        foo: "bar",
+        foo: "---",
         buzz: 5 + 5,
         method: method
     }
 
+    helloObj.foo = "bar"
     return helloObj
 }
 

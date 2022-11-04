@@ -8,8 +8,9 @@ const rl = readline.createInterface({
 });
 
 const vm = new Rue.VM();
+vm.addLibrary("std", std);
 
 rl.on("line", (line) => {
 	console.log(line);
-	console.log(vm.interpret(line + " ", std));
+	console.log(vm.interpret(line + " "));
 });

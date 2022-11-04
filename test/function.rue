@@ -1,3 +1,5 @@
+use std.assert
+
 fn concat(a, b) {
 	return a + b
 }

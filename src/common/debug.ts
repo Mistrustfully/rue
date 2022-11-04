@@ -94,7 +94,7 @@ function closureInstruction(name: string, chunk: Chunk, offset: number): [number
 export namespace Debug {
 	export const Config = {
 		DEBUG_TRACE_EXECUTION: true,
-		DEBUG_EXECUTION_TIME: false,
+		DEBUG_EXECUTION_TIME: true,
 		DEBUG_STACK: false,
 	};
 

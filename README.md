@@ -3,6 +3,14 @@ An interpreted programming language written in Typescript.
 
 
 ## Features
+* Use Statements
+```rs
+use std.(print, assert)
+
+print("Hello World!")
+assert(1 == 1)
+```
+
 * Functions
 ```rs
 fn fib() {
@@ -27,66 +35,15 @@ for var i = 0, i <= 3, i = i + 1 {
 assert(add == 6)
 ```
 
+* Objects
+```rs
+var obj = {
+    stuff: "Hello",
+    stuff2: "World"
+}
+
+assert((obj.stuff + obj.stuff2) == "HelloWorld")
+```
+
 See the [tests](test) for examples on how to program in Rue!
-
-## Planned Features
-
-[ ] Use keyword
-```rs
-use {std::print}
-print("Hello World")
-```
-
-[ ] Classes
-```rs
-use {std::print}
-
-class Person {
-    private name;
-    sayName() {
-        print(this.name)
-    }
-    
-    new(name) {
-        this.name = name
-    }
-}
-
-var person = Person::new()
-person.sayName()
-```
-
-[ ] Traits
-```rs
-use {std::print}
-
-trait Speaks {
-    say(text) {
-        print(text)
-    }
-}
-
-trait Greets {
-    greet() {
-        print(this.name)
-    }
-}
-
-class Person: Speaks, Greets {
-    private name;
-    new(name) {
-        this.name = name
-    }
-}
-
-class Dog: Speaks {}
-
-var dog = Dog::new()
-var person = Person::new()
-
-dog.say("Woof!")
-
-person.say("Hello!")
-person.greet()
-```
 

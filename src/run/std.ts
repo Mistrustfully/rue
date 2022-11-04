@@ -1,36 +1,26 @@
 import { RueValue } from "../common/value";
 
-const std = new Map<string, RueValue>([
-	[
-		"print",
-		{
-			type: "nativeFunction",
-			value: (valToPrint: RueValue) => {
-				if (valToPrint.type === "nil") return valToPrint;
-				console.log(valToPrint.value);
+const std: { [index: string]: RueValue } = {
+	print: {
+		type: "nativeFunction",
+		value: (valToPrint: RueValue) => {
+			if (valToPrint.type === "nil") return valToPrint;
+			console.log(valToPrint.value);
 
-				return { type: "nil" };
-			},
+			return { type: "nil" };
 		},
-	],
-	[
-		"assert",
-		{
-			type: "nativeFunction",
-			value: (check: RueValue) => {
-				if (check.type !== "nil" && check.type !== "boolean") return { type: "boolean", value: true };
-				if (check.type === "nil") {
-					return;
-				}
+	},
 
-				if (check.value === false) {
-					return { type: "error", value: "Assert failed!" };
-				}
+	assert: {
+		type: "nativeFunction",
+		value: (assertVal: RueValue) => {
+			if (assertVal.type === "nil") return { type: "error", value: "Value was nil!" };
+			if (assertVal.type !== "boolean") return { type: "error", value: "Value wasn't a boolean!" };
+			if (!assertVal.value) return { type: "error", value: "Value was false!" };
 
-				return check;
-			},
+			return { type: "nil" };
 		},
-	],
-]);
+	},
+};
 
 export default std;

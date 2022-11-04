@@ -1,7 +1,20 @@
 import { Debug, InstructionTable } from "../common/debug";
 import { OpCode } from "../common/opcode";
-import { RueBoolean, RueClosure, RueNumber, RueString, RueUpvalue, RueValue, ValuesEqual } from "../common/value";
+import {
+	RueBoolean,
+	RueClosure,
+	RueNumber,
+	RueObject,
+	RueString,
+	RueUpvalue,
+	RueValue,
+	ValuesEqual,
+} from "../common/value";
 import { Compile } from "../frontend/compiler";
+
+type Library = {
+	[index: string]: RueValue;
+};
 
 export class CallFrame {
 	instruction = -1;
@@ -13,20 +26,13 @@ export class CallFrame {
 }
 
 export class VM {
-	public interpret(source: string, natives?: Map<string, RueValue>): [InterpretResult, RueValue?] {
+	public interpret(source: string): [InterpretResult, RueValue?] {
 		// Reset VM state
 		this.frames = [];
 		this.frameCount = 0;
 
-		const [success, fn] = Compile(source);
+		const [success, fn] = Compile(source, this.libraries);
 		if (success === false) return [InterpretResult.COMPILE_ERROR];
-
-		if (natives) {
-			natives.forEach((native, name) => {
-				this.globals.set(name, native);
-			});
-		}
-
 		const callFrame = new CallFrame({ type: "closure", value: { fn, upvalues: [] } });
 		this.frames[this.frameCount++] = callFrame;
 
@@ -43,6 +49,11 @@ export class VM {
 		return rest;
 	}
 
+	public addLibrary(libName: string, lib: Library) {
+		const rueObj: RueObject = { type: "object", value: lib };
+		this.libraries.set(libName, rueObj);
+	}
+
 	public reset() {
 		this.globals.clear();
 		this.openUpvalues = undefined;
@@ -54,6 +65,7 @@ export class VM {
 	private frameCount = 0;
 	private openUpvalues?: RueUpvalue;
 	private instructionTimes = new Map<OpCode, [number, number]>();
+	private libraries = new Map<string, RueValue>();
 
 	private getFrame() {
 		return this.frames[this.frameCount - 1];
